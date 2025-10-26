@@ -12,9 +12,9 @@ mkdir -p common server client
 
 # Create files
 touch README.md Makefile \
-      common/logger.hpp common/logger.cpp common/net.hpp common/net.cpp \
-      server/Makefile server/main.cpp \
-      client/Makefile client/dme.hpp client/dme.cpp client/main.cpp
+      common/Logger.hpp common/Logger.cpp common/NetUtils.hpp common/NetUtils.cpp \
+      server/Makefile server/ServerMain.cpp \
+      client/Makefile client/DME.hpp client/DME.cpp client/ClientMain.cpp
 
 echo "Project structure created successfully:"
 tree -a -I '.git'
