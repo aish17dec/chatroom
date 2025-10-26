@@ -118,6 +118,9 @@ ssh -i /home/vbhadra/Downloads/CUDA-Assignment-Key-Pair.pem ubuntu@35.179.154.24
 ssh -i /home/vbhadra/Downloads/CUDA-Assignment-Key-Pair.pem ubuntu@18.171.207.58
 ```
 
+Note: 
+I had created this /home/vbhadra/Downloads/CUDA-Assignment-Key-Pair.pem key-pair in the past and resued it for this project. 
+You can create a new one or use any existing you might already have.  
 ---
 
 ## 4. Clone the Repository and Set Up Environment
