@@ -364,5 +364,3 @@ Executing: ./bin/server --bind 0.0.0.0:7000 --file ./chat.txt
 At the end, both messages appear timestamped and ordered correctly in the shared file.
 
 ---
-
----
