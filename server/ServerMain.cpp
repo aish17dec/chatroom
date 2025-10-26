@@ -1,4 +1,3 @@
-#include "../common/Logger.hpp"
 #include "../common/NetUtils.hpp"
 #include <cstring>
 #include <fstream>
@@ -22,6 +21,7 @@ static void HandleView(int clientFd)
     std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
     dprintf(clientFd, "OK %zu\n%s.\n", content.size(), content.c_str());
+    std::cout << "[SERVER] VIEW request served. File size: " << content.size() << " bytes" << std::endl;
 }
 
 static void HandlePost(int clientFd, const std::string &line)
@@ -30,13 +30,16 @@ static void HandlePost(int clientFd, const std::string &line)
     if (!file.is_open())
     {
         dprintf(clientFd, "ERR open\n");
+        std::cerr << "[SERVER] ERROR: Failed to open file for POST" << std::endl;
         return;
     }
 
-    file << line.substr(5) << "\n";
+    std::string message = line.substr(5);
+    file << message << "\n";
     file.close();
+
     dprintf(clientFd, "OK\n");
-    LogLine("[SERVER] POST appended: %s", line.substr(5).c_str());
+    std::cout << "[SERVER] POST appended: " << message << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -52,39 +55,52 @@ int main(int argc, char **argv)
             g_file = argv[++i];
     }
 
-    InitLogger("server");
     std::cout << "[SERVER] Starting on " << bindAddr << " using file: " << g_file << std::endl;
 
     int listenFd = TcpListen(bindAddr);
     if (listenFd < 0)
     {
-        std::cerr << "Failed to bind " << bindAddr << std::endl;
+        std::cerr << "[SERVER] ERROR: Failed to bind " << bindAddr << std::endl;
         return 1;
     }
+
+    std::cout << "[SERVER] Listening for connections..." << std::endl;
 
     while (true)
     {
         int clientFd = ::accept(listenFd, nullptr, nullptr);
         if (clientFd < 0)
+        {
+            std::cerr << "[SERVER] WARNING: accept() failed" << std::endl;
             continue;
+        }
 
         std::string line;
         if (RecvLine(clientFd, line) <= 0)
         {
+            std::cerr << "[SERVER] WARNING: Failed to receive data from client" << std::endl;
             ::close(clientFd);
             continue;
         }
 
-        LogLine("[SERVER] Received line: \"%s\"", line.c_str());
+        std::cout << "[SERVER] Received line: \"" << line << "\"" << std::endl;
 
         if (line.rfind("VIEW", 0) == 0)
+        {
             HandleView(clientFd);
+        }
         else if (line.rfind("POST", 0) == 0)
+        {
             HandlePost(clientFd, line);
+        }
         else
+        {
             dprintf(clientFd, "ERR unknown\n");
+            std::cerr << "[SERVER] ERROR: Unknown command received" << std::endl;
+        }
 
         ::close(clientFd);
+        std::cout << "[SERVER] Connection closed" << std::endl;
     }
 
     return 0;
