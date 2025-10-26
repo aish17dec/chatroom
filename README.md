@@ -76,6 +76,8 @@ All three must be in the same **VPC** and **subnet** so they can communicate wit
 | Custom TCP | 8002 | 0.0.0.0/0 | DME coordination                |
 
 You don’t need to edit outbound rules — AWS allows all outbound traffic by default.
+<img width="1591" height="574" alt="image" src="https://github.com/user-attachments/assets/12e5cfd0-392f-4301-9d6d-9a2c51d1b771" />
+
 
 After creating the group:
 
