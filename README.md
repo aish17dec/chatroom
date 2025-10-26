@@ -22,3 +22,4 @@ vbhadra@vbhadra-DQ77MK:~/chatroom$ tree
 4 directories, 13 files
 
 
+./bin/server --bind 0.0.0.0:7000 --file ./chat.txt
