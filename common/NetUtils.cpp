@@ -105,9 +105,6 @@ int TcpListen(const std::string &hostPort)
     }
 
     freeaddrinfo(result);
-
-    DEBUG_LOG("TcpListen(): returning fd=%d", listenFd);
-    TRACE_EXIT();
     return listenFd;
 }
 
