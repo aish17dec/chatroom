@@ -1,62 +1,83 @@
 #include "../common/Logger.hpp"
 #include "../common/NetUtils.hpp"
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 #include <string>
-#include <sys/socket.h> // for accept(), bind(), listen(), connect()
 #include <unistd.h>
-#include <unistd.h> // for close(), read(), write()
 
-static const char *g_chatFile = "./chat.txt";
+/*
+ *  ServerMain.cpp
+ *  ---------------
+ *  Simple TCP file server for the distributed chatroom.
+ *  Provides:
+ *    VIEW – read chat file
+ *    POST – append to chat file
+ *
+ *  This version adds full diagnostic logging to stdout/stderr
+ *  so you can see exactly what requests arrive and how they’re handled.
+ */
 
-static void HandleView(int clientFd)
+static std::string g_file = "chat.txt";
+
+static void HandleView(int clientFd, const std::string &line)
 {
-    FILE *file = std::fopen(g_chatFile, "r");
-    if (!file)
+    std::cout << "[SERVER] VIEW request received" << std::endl;
+    std::ifstream file(g_file);
+    if (!file.is_open())
     {
+        std::cerr << "[SERVER] ERR open: cannot open " << g_file << std::endl;
         SendLine(clientFd, "ERR open");
         return;
     }
-    std::fseek(file, 0, SEEK_END);
-    long size = std::ftell(file);
-    std::fseek(file, 0, SEEK_SET);
-    SendLine(clientFd, "OK " + std::to_string(size));
-    char buf[4096];
-    size_t n;
-    while ((n = std::fread(buf, 1, sizeof buf, file)) > 0)
-        SendAll(clientFd, buf, n);
-    SendLine(clientFd, ".");
-    std::fclose(file);
+
+    std::ostringstream buf;
+    buf << file.rdbuf();
+    std::string content = buf.str();
+    file.close();
+
+    std::ostringstream header;
+    header << "OK " << content.size() << "\n";
+    SendLine(clientFd, header.str());
+    SendAll(clientFd, content.c_str(), content.size());
+    SendLine(clientFd, "."); // end marker
+    std::cout << "[SERVER] VIEW served " << content.size() << " bytes" << std::endl;
 }
 
 static void HandlePost(int clientFd, const std::string &line)
 {
-    const char *payload = line.c_str() + 5; // skip "POST "
-    FILE *file = std::fopen(g_chatFile, "a");
-    if (!file)
+    std::cout << "[SERVER] POST request: " << line << std::endl;
+    std::ofstream file(g_file, std::ios::app);
+    if (!file.is_open())
     {
+        std::cerr << "[SERVER] ERR open: cannot append " << g_file << std::endl;
         SendLine(clientFd, "ERR open");
         return;
     }
-    std::fprintf(file, "%s\n", payload);
-    std::fclose(file);
+
+    std::string msg = line.substr(5); // strip "POST "
+    file << msg << "\n";
+    file.close();
+
     SendLine(clientFd, "OK");
-    LogLine("APPEND: %s", payload);
+    std::cout << "[SERVER] APPEND successful: " << msg << std::endl;
 }
 
 int main(int argc, char **argv)
 {
-    const char *bindAddr = "0.0.0.0:7000";
+    std::string bindAddr = "0.0.0.0:7000";
+
     for (int i = 1; i < argc; ++i)
     {
         if (!strcmp(argv[i], "--bind") && i + 1 < argc)
             bindAddr = argv[++i];
         else if (!strcmp(argv[i], "--file") && i + 1 < argc)
-            g_chatFile = argv[++i];
+            g_file = argv[++i];
     }
 
-    InitLogger("Server");
+    std::cout << "[SERVER] Starting on " << bindAddr << " using file: " << g_file << std::endl;
+
     int listenFd = TcpListen(bindAddr);
     if (listenFd < 0)
     {
@@ -64,23 +85,41 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    LogLine("LISTEN on %s; file=%s", bindAddr, g_chatFile);
-
     while (true)
     {
         int clientFd = ::accept(listenFd, nullptr, nullptr);
         if (clientFd < 0)
             continue;
+
         std::string line;
-        if (RecvLine(clientFd, line) > 0)
+        if (RecvLine(clientFd, line) <= 0)
         {
-            if (line.rfind("VIEW", 0) == 0)
-                HandleView(clientFd);
-            else if (line.rfind("POST ", 0) == 0)
-                HandlePost(clientFd, line);
-            else
-                SendLine(clientFd, "ERR badcmd");
+            ::close(clientFd);
+            continue;
         }
+
+        // Trim CR/LF
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+            line.pop_back();
+
+        std::cout << "[SERVER] Received line: \"" << line << "\"" << std::endl;
+
+        if (line.rfind("VIEW", 0) == 0)
+        {
+            HandleView(clientFd, line);
+        }
+        else if (line.rfind("POST ", 0) == 0)
+        {
+            HandlePost(clientFd, line);
+        }
+        else
+        {
+            std::cerr << "[SERVER] Unknown command: " << line << std::endl;
+            SendLine(clientFd, "ERR badcmd");
+        }
+
         ::close(clientFd);
     }
+
+    return 0;
 }
