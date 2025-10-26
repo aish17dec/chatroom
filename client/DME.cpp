@@ -23,7 +23,7 @@ void DME::sendLine(const std::string &line)
         out.push_back('\n');
 
     SendAll(m_peerFd, out.c_str(), out.size());
-    std::cout << "[RA] Sent message: %s" << out.c_str() << "\n";
+    std::cout << "[RA] Sent message: " << out.c_str() << "\n";
 }
 
 /**
