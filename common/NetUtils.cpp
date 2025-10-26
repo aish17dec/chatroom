@@ -182,8 +182,6 @@ int TcpConnectHostPort(const std::string &hostPort)
  */
 int RecvLine(int fd, std::string &out, size_t max)
 {
-    TRACE_ENTER();
-    DEBUG_LOG("RecvLine() fd=%d, max=%zu", fd, max);
     out.clear();
     char ch;
     while (out.size() + 1 < max)
@@ -203,8 +201,6 @@ int RecvLine(int fd, std::string &out, size_t max)
         }
     }
 
-    DEBUG_LOG("RecvLine(): returning %zu bytes", out.size());
-    TRACE_EXIT();
     return static_cast<int>(out.size());
 }
 
