@@ -203,24 +203,47 @@ int RecvLine(int fd, std::string &out, size_t max)
  * Sends the entire buffer over the socket, retrying if necessary.
  * Returns 0 on success, -1 on error.
  */
+// int SendAll(int fd, const void *buf, size_t len)
+// {
+//     const char *ptr = static_cast<const char *>(buf);
+//     size_t totalSent = 0;
+
+//     while (totalSent < len)
+//     {
+//         ssize_t n = ::send(fd, ptr + totalSent, len - totalSent, 0);
+//         if (n <= 0)
+//         {
+//             DEBUG_LOG("send() failed: %s", strerror(errno));
+//             return -1;
+//         }
+//         totalSent += static_cast<size_t>(n);
+//         DEBUG_LOG("SendAll(): sent=%zd, totalSent=%zu/%zu", n, totalSent, len);
+//     }
+
+//     DEBUG_LOG("SendAll(): completed successfully for fd=%d", fd);
+//     return 0;
+// }
+
 int SendAll(int fd, const void *buf, size_t len)
 {
     const char *ptr = static_cast<const char *>(buf);
     size_t totalSent = 0;
+
+    // Print the full message being sent (for human debugging)
+    std::string message(ptr, len);
+    std::cout << "[NET][SEND] fd=" << fd << " message: " << message << std::flush;
 
     while (totalSent < len)
     {
         ssize_t n = ::send(fd, ptr + totalSent, len - totalSent, 0);
         if (n <= 0)
         {
-            DEBUG_LOG("send() failed: %s", strerror(errno));
+            std::cerr << "[NET][ERROR] send() failed: " << strerror(errno) << std::endl;
             return -1;
         }
         totalSent += static_cast<size_t>(n);
-        DEBUG_LOG("SendAll(): sent=%zd, totalSent=%zu/%zu", n, totalSent, len);
     }
 
-    DEBUG_LOG("SendAll(): completed successfully for fd=%d", fd);
     return 0;
 }
 
