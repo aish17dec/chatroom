@@ -1,5 +1,4 @@
-chmod +x create_structure.sh
-./create_structure.sh
+The filesystem we have sued for this assignment looks like the below:  
 ```
 vbhadra@vbhadra-DQ77MK:~/chatroom$ tree
 .
