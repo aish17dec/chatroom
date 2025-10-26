@@ -22,7 +22,9 @@
  *   - To File Server: VIEW / POST commands
  *   - To Peer Node:   REQ / REP / REL messages (DME)
  *
- *  This version adds a robust peer connection retry mechanism.
+ *  This version adds a permanent peer-connection retry loop so that
+ *  the client can start in any order and will patiently wait until
+ *  the peer node becomes available.
  */
 
 static void formatTimestamp(char *buffer, size_t size)
@@ -55,10 +57,10 @@ static void peerListener(int listenFd, DME *dme)
 }
 
 /*
- * Attempts to connect to the peer with retries.
- * This allows clients to start in any order without "Connection refused".
+ * Attempts to connect to the peer and keeps retrying indefinitely
+ * until the peer node is reachable. This makes startup order irrelevant.
  */
-static int connectToPeerWithRetry(const std::string &peerAddress)
+static int connectToPeerForever(const std::string &peerAddress)
 {
     std::string host, port;
     size_t pos = peerAddress.find(':');
@@ -71,25 +73,22 @@ static int connectToPeerWithRetry(const std::string &peerAddress)
     host = peerAddress.substr(0, pos);
     port = peerAddress.substr(pos + 1);
 
-    const int MAX_ATTEMPTS = 10;
+    int peerFd = -1;
     int attempt = 0;
 
-    int peerFd = -1;
-    while (attempt < MAX_ATTEMPTS)
+    while (true)
     {
         peerFd = TcpConnect(host, port);
         if (peerFd >= 0)
         {
-            std::cout << "Connected to peer " << peerAddress << std::endl;
+            std::cout << "Connected to peer " << peerAddress << " after " << attempt << " attempts." << std::endl;
             return peerFd;
         }
 
-        std::cout << "Peer not ready (" << ++attempt << "/" << MAX_ATTEMPTS << "), retrying in 2s..." << std::endl;
+        ++attempt;
+        std::cout << "Peer not ready, retrying in 2s... (attempt " << attempt << ")\n";
         std::this_thread::sleep_for(std::chrono::seconds(2));
     }
-
-    std::cerr << "Failed to connect to peer " << peerAddress << " after " << MAX_ATTEMPTS << " attempts." << std::endl;
-    return -1;
 }
 
 int main(int argc, char **argv)
@@ -131,11 +130,11 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // Connect to peer (with retry)
-    int peerFd = connectToPeerWithRetry(peerAddress);
+    // Connect to peer (wait forever until available)
+    int peerFd = connectToPeerForever(peerAddress);
     if (peerFd < 0)
     {
-        std::cerr << "Peer connection failed, exiting.\n";
+        std::cerr << "Peer connection failed unexpectedly.\n";
         return 1;
     }
 
