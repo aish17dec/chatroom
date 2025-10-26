@@ -188,8 +188,10 @@ Executing: ./bin/server --bind 0.0.0.0:7000 --file ./chat.txt
 [2025-10-26 16:09:05] [NET] TcpListen(): Successfully bound and listening on fd=3
 [2025-10-26 16:09:05] [SERVER] Listening for connections...
 ```
-
 Leave this running.
+
+Screenshot:  
+<img width="992" height="403" alt="image" src="https://github.com/user-attachments/assets/f9e12fd4-3e8a-434d-b2ca-91d30642cf50" />
 
 ---
 
@@ -219,6 +221,9 @@ Executing: ./bin/client --user Lucy --self-id 1 --peer-id 2 --listen 0.0.0.0:800
 [2025-10-26 16:09:31] [CLIENT] Peer not ready, retrying in 2s... (attempt 3)
 ```
 
+Screenshot:  
+<img width="1208" height="347" alt="image" src="https://github.com/user-attachments/assets/78a8a661-d141-4d00-82de-a99a8fef4761" />
+
 ### Client 2
 
 ```bash
@@ -242,6 +247,9 @@ Executing: ./bin/client --user "Joel" --self-id 2 --peer-id 1 --listen 0.0.0.0:8
 [2025-10-26 16:09:58] [CLIENT] Commands: view | post "text" | quit
 > 
 ```
+Screenshot:  
+<img width="1238" height="852" alt="image" src="https://github.com/user-attachments/assets/41c12c06-a8e8-48cc-b925-ea9e58d980c1" />
+
 
 ---
 
