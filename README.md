@@ -25,9 +25,6 @@ vbhadra@vbhadra-DQ77MK:~/chatroom$ tree
 ./bin/server --bind 0.0.0.0:7000 --file ./chat.txt
 ./bin/client   --user Lucy   --self-id 1   --peer-id 2   --listen 0.0.0.0:8001   --peer 172:   --server 172.31.23.9:7000
 
-Got it — I’ve extracted the full content from your **Instructions.pdf** and converted it into clean, GitHub Wiki–compatible **Markdown format**.
-Here’s the converted file:
-
 ---
 
 # Chatroom Distributed System – Setup and Test Guide
