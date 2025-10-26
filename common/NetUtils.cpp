@@ -114,9 +114,6 @@ int TcpListen(const std::string &hostPort)
  */
 int TcpConnect(const std::string &host, const std::string &port)
 {
-    TRACE_ENTER();
-    DEBUG_LOG("TcpConnect() called with host=%s, port=%s", host.c_str(), port.c_str());
-
     struct addrinfo hints
     {
     };
@@ -156,8 +153,6 @@ int TcpConnect(const std::string &host, const std::string &port)
     }
 
     freeaddrinfo(result);
-    DEBUG_LOG("TcpConnect(): returning fd=%d", sockFd);
-    TRACE_EXIT();
     return sockFd;
 }
 
