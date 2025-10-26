@@ -178,9 +178,15 @@ On the server terminal:
 Example output:
 
 ```
+ubuntu@ip-172-31-23-9:~/chatroom$ ./start_server.sh 
 Executing: ./bin/server --bind 0.0.0.0:7000 --file ./chat.txt
-[2025-10-26 14:44:08] [SERVER] Starting on 0.0.0.0:7000 using file: ./chat.txt
-[SERVER] Listening for connections...
+[2025-10-26 16:09:05] [SERVER] Starting on 0.0.0.0:7000 using file: ./chat.txt
+[2025-10-26 16:09:05] [NET] TcpListen() called with hostPort=0.0.0.0:7000
+[2025-10-26 16:09:05] [NET] SplitHostPort(): host=0.0.0.0, port=7000
+[2025-10-26 16:09:05] [NET] Creating socket: family=2, socktype=1, protocol=6
+[2025-10-26 16:09:05] [NET] Attempting bind() and listen() on socket fd=3
+[2025-10-26 16:09:05] [NET] TcpListen(): Successfully bound and listening on fd=3
+[2025-10-26 16:09:05] [SERVER] Listening for connections...
 ```
 
 Leave this running.
@@ -198,8 +204,19 @@ Leave this running.
 Example:
 
 ```
+ubuntu@ip-172-31-22-222:~/chatroom$ ./start_client1.sh 
 Executing: ./bin/client --user Lucy --self-id 1 --peer-id 2 --listen 0.0.0.0:8001 --peer 172.31.27.84:8002 --server 172.31.23.9:7000
-[CLIENT] Peer not ready, retrying...
+[2025-10-26 16:09:27] [NET] TcpListen() called with hostPort=0.0.0.0:8001
+[2025-10-26 16:09:27] [NET] SplitHostPort(): host=0.0.0.0, port=8001
+[2025-10-26 16:09:27] [NET] Creating socket: family=2, socktype=1, protocol=6
+[2025-10-26 16:09:27] [NET] Attempting bind() and listen() on socket fd=3
+[2025-10-26 16:09:27] [NET] TcpListen(): Successfully bound and listening on fd=3
+[2025-10-26 16:09:27] [NET] Attempting connect()
+[2025-10-26 16:09:27] [CLIENT] Peer not ready, retrying in 2s... (attempt 1)
+[2025-10-26 16:09:29] [NET] Attempting connect()
+[2025-10-26 16:09:29] [CLIENT] Peer not ready, retrying in 2s... (attempt 2)
+[2025-10-26 16:09:31] [NET] Attempting connect()
+[2025-10-26 16:09:31] [CLIENT] Peer not ready, retrying in 2s... (attempt 3)
 ```
 
 ### Client 2
@@ -212,10 +229,18 @@ Example:
 
 ```
 Executing: ./bin/client --user "Joel" --self-id 2 --peer-id 1 --listen 0.0.0.0:8002 --peer 172.31.22.222:8001 --server 172.31.23.9:7000
-[CLIENT] Connected to peer 172.31.22.222:8001
-[CLIENT] Chat Room -- DC Assignment II
-[CLIENT] Commands: view | post "text" | quit
->
+[2025-10-26 16:09:58] [NET] TcpListen() called with hostPort=0.0.0.0:8002
+[2025-10-26 16:09:58] [NET] SplitHostPort(): host=0.0.0.0, port=8002
+[2025-10-26 16:09:58] [NET] Creating socket: family=2, socktype=1, protocol=6
+[2025-10-26 16:09:58] [NET] Attempting bind() and listen() on socket fd=3
+[2025-10-26 16:09:58] [NET] TcpListen(): Successfully bound and listening on fd=3
+[2025-10-26 16:09:58] [NET] Attempting connect()
+[2025-10-26 16:09:58] [NET] TcpConnect(): successfully connected
+[2025-10-26 16:09:58] [CLIENT] Connected to peer 172.31.22.222:8001 after 0 attempts.
+[2025-10-26 16:09:58] [CLIENT] Chat Room — DC Assignment II
+[2025-10-26 16:09:58] [CLIENT] User: Joel (self=2, peer=1)
+[2025-10-26 16:09:58] [CLIENT] Commands: view | post "text" | quit
+> 
 ```
 
 ---
@@ -228,6 +253,16 @@ Executing: ./bin/client --user "Joel" --self-id 2 --peer-id 1 --listen 0.0.0.0:8
 
 ```
 > view
+[2025-10-26 16:10:36] [NET] TcpConnectHostPort() input: 172.31.23.9:7000
+[2025-10-26 16:10:36] [NET] SplitHostPort(): host=172.31.23.9, port=7000
+[2025-10-26 16:10:36] [NET] Attempting connect()
+[2025-10-26 16:10:36] [NET] TcpConnect(): successfully connected
+[2025-10-26 16:10:36] [NET][SEND] VIEW
+
+[2025-10-26 16:10:36] [NET] SendLine(): sent 5 bytes, result=0
+[2025-10-26 16:10:36] [CLIENT] 26 Oct 03:14 PM Joel: "HELLO"
+[2025-10-26 16:10:36] [CLIENT] 
+[2025-10-26 16:10:36] [CLIENT] 26 Oct 04:08 PM Joel: "Hi there"
 ```
 
 Displays the current chat log from the server.
@@ -241,9 +276,26 @@ Displays the current chat log from the server.
 Expected log:
 
 ```
-[DME][RA] REQUEST sent to peer ID: 2
-[DME][RA] ENTER critical section
-[NET][SEND] POST 26 Oct 04:11 PM Lucy: "Hello from Client 1 - testing DME"
+> post "Hello from Client 1 – testing DME"
+[2025-10-26 16:11:15] [NET][SEND] REQUEST 1 1
+
+[2025-10-26 16:11:15] [DME][RA] Sent message: REQUEST 1 1
+
+[2025-10-26 16:11:15] [DME][RA] REQUEST sent to peer ID: 2 request ID:1
+[2025-10-26 16:11:15] [CLIENT 1] peer->me: REPLY 2
+[2025-10-26 16:11:15] [DME] Message Received : REPLY 2
+
+[2025-10-26 16:11:15] [DME] Extracted Type: REPLY
+[2025-10-26 16:11:15] [DME][RA] Received REPLY (permission granted) from peer 2
+[2025-10-26 16:11:15] [DME][RA] ENTER critical section (permission received)
+[2025-10-26 16:11:15] [NET] TcpConnectHostPort() input: 172.31.23.9:7000
+[2025-10-26 16:11:15] [NET] SplitHostPort(): host=172.31.23.9, port=7000
+[2025-10-26 16:11:15] [NET] Attempting connect()
+[2025-10-26 16:11:15] [NET] TcpConnect(): successfully connected
+[2025-10-26 16:11:15] [NET][SEND] POST 26 Oct 04:11 PM Lucy: "Hello from Client 1 – testing DME"
+
+[2025-10-26 16:11:15] [NET] SendLine(): sent 65 bytes, result=0
+[2025-10-26 16:11:15] [CLIENT] (posted)
 ```
 
 ### From Client 2
@@ -257,7 +309,20 @@ Expected log:
 You should now see:
 
 ```
-26 Oct 04:11 PM Lucy: "Hello from Client 1 - testing DME"
+> view
+[2025-10-26 16:12:08] [NET] TcpConnectHostPort() input: 172.31.23.9:7000
+[2025-10-26 16:12:08] [NET] SplitHostPort(): host=172.31.23.9, port=7000
+[2025-10-26 16:12:08] [NET] Attempting connect()
+[2025-10-26 16:12:08] [NET] TcpConnect(): successfully connected
+[2025-10-26 16:12:08] [NET][SEND] VIEW
+
+[2025-10-26 16:12:08] [NET] SendLine(): sent 5 bytes, result=0
+[2025-10-26 16:12:08] [CLIENT] 26 Oct 03:14 PM Joel: "HELLO"
+[2025-10-26 16:12:08] [CLIENT] 
+[2025-10-26 16:12:08] [CLIENT] 26 Oct 04:08 PM Joel: "Hi there"
+[2025-10-26 16:12:08] [CLIENT] 
+[2025-10-26 16:12:08] [CLIENT] 26 Oct 04:11 PM Lucy: "Hello from Client 1 – testing DME"
+[2025-10-26 16:12:08] [CLIENT] 
 ```
 
 While **Client 1** is posting, try posting simultaneously from **Client 2**:
