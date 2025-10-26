@@ -131,8 +131,6 @@ int TcpConnect(const std::string &host, const std::string &port)
     int sockFd = -1;
     for (auto *rp = result; rp; rp = rp->ai_next)
     {
-        DEBUG_LOG("Creating socket: family=%d, socktype=%d, protocol=%d", rp->ai_family, rp->ai_socktype,
-                  rp->ai_protocol);
         sockFd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (sockFd < 0)
         {
@@ -147,7 +145,6 @@ int TcpConnect(const std::string &host, const std::string &port)
             break;
         }
 
-        DEBUG_LOG("connect() failed: %s", strerror(errno));
         close(sockFd);
         sockFd = -1;
     }
