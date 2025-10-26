@@ -1,12 +1,22 @@
 #ifndef TRACE_HPP
 #define TRACE_HPP
 
-#include <iostream>
-#include <iomanip>
-#include <sstream>
 #include <chrono>
-#include <thread>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
 #include <string>
+#include <thread>
+
+#include <cstdarg>
+#include <cstdio>
+
+#define DEBUG_LOG(fmt, ...)                                                                                            \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        fprintf(stderr, "[DEBUG] %s:%d:%s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__);                 \
+        fflush(stderr);                                                                                                \
+    } while (0)
 
 // Utility to get current timestamp (HH:MM:SS.mmm)
 inline std::string currentTimestamp()
@@ -22,36 +32,37 @@ inline std::string currentTimestamp()
     localtime_r(&t, &tm_buf);
 #endif
     std::ostringstream oss;
-    oss << std::put_time(&tm_buf, "%H:%M:%S") << '.'
-        << std::setfill('0') << std::setw(3) << ms.count();
+    oss << std::put_time(&tm_buf, "%H:%M:%S") << '.' << std::setfill('0') << std::setw(3) << ms.count();
     return oss.str();
 }
 
 // Core TRACE macros
-#define TRACE_ENTER()                                                                          \
-    do {                                                                                       \
-        std::ostringstream _trace_oss;                                                         \
-        _trace_oss << "[" << currentTimestamp() << "] [ENTER] ("                               \
-                   << std::this_thread::get_id() << ") " << __FUNCTION__ << std::endl;          \
-        std::cout << _trace_oss.str();                                                         \
+#define TRACE_ENTER()                                                                                                  \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        std::ostringstream _trace_oss;                                                                                 \
+        _trace_oss << "[" << currentTimestamp() << "] [ENTER] (" << std::this_thread::get_id() << ") " << __FUNCTION__ \
+                   << std::endl;                                                                                       \
+        std::cout << _trace_oss.str();                                                                                 \
     } while (0)
 
-#define TRACE_EXIT()                                                                           \
-    do {                                                                                       \
-        std::ostringstream _trace_oss;                                                         \
-        _trace_oss << "[" << currentTimestamp() << "] [EXIT]  ("                               \
-                   << std::this_thread::get_id() << ") " << __FUNCTION__ << std::endl;          \
-        std::cout << _trace_oss.str();                                                         \
+#define TRACE_EXIT()                                                                                                   \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        std::ostringstream _trace_oss;                                                                                 \
+        _trace_oss << "[" << currentTimestamp() << "] [EXIT]  (" << std::this_thread::get_id() << ") " << __FUNCTION__ \
+                   << std::endl;                                                                                       \
+        std::cout << _trace_oss.str();                                                                                 \
     } while (0)
 
 // Optional: print custom trace message with thread & time
-#define TRACE_MSG(msg)                                                                         \
-    do {                                                                                       \
-        std::ostringstream _trace_oss;                                                         \
-        _trace_oss << "[" << currentTimestamp() << "] [TRACE] ("                               \
-                   << std::this_thread::get_id() << ") " << msg << std::endl;                   \
-        std::cout << _trace_oss.str();                                                         \
+#define TRACE_MSG(msg)                                                                                                 \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        std::ostringstream _trace_oss;                                                                                 \
+        _trace_oss << "[" << currentTimestamp() << "] [TRACE] (" << std::this_thread::get_id() << ") " << msg          \
+                   << std::endl;                                                                                       \
+        std::cout << _trace_oss.str();                                                                                 \
     } while (0)
 
 #endif // TRACE_HPP
-
