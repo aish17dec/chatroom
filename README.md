@@ -82,13 +82,14 @@ You don’t need to edit outbound rules — AWS allows all outbound traffic by d
 Here is a screenshot from the security group that I created for this:  
 <img width="1591" height="574" alt="image" src="https://github.com/user-attachments/assets/12e5cfd0-392f-4301-9d6d-9a2c51d1b771" />
 
-
 After creating the group:
 
 * Go to **Instances** in EC2 dashboard.
 * Select each instance (server and clients).
 * Choose **Actions → Security → Change security groups**.
 * Tick **chatroom-sg** and click **Save**.
+
+Or alternatively, you can choose an exisitng security group at the time of EC2 instance creation as well.  
 
 ---
 
