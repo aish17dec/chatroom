@@ -1,7 +1,3 @@
-#include "../common/Logger.hpp"
-#include "../common/NetUtils.hpp"
-#include "DME.hpp"
-
 #include <arpa/inet.h>
 #include <chrono>
 #include <cstdio>
@@ -14,6 +10,11 @@
 #include <sys/types.h>
 #include <thread>
 #include <unistd.h>
+
+#include "../Trace.hpp"
+#include "../common/Logger.hpp"
+#include "../common/NetUtils.hpp"
+#include "DME.hpp"
 
 /* Timestamp formatter for chat lines */
 static void formatTimestamp(char *buf, size_t n)
@@ -158,6 +159,7 @@ static void userInputLoop(const std::string &userName, const std::string &server
 
 int main(int argc, char **argv)
 {
+    TRACE_ENTER();
     std::string userName = "User";
     int selfId = 1;
     int peerId = 2;
@@ -206,7 +208,7 @@ int main(int argc, char **argv)
     // 4) Start the two threads
     std::thread tPeer(peerAcceptLoop, listenFd, &dme);            // RA listener
     std::thread tUser(userInputLoop, userName, serverAddr, &dme); // CLI
-
+    TRACE_EXIT();
     // 5) Wait for CLI to finish; RA thread runs as a service
     tUser.join();
 
