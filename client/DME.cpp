@@ -38,6 +38,9 @@ void DME::handleRaMessage(const std::string &msg)
 
     std::unique_lock<std::mutex> lk(m_mutex);
 
+    std::cout << "Message Received : " << msg << "\n";
+    std::cout << "Extracted Type: " << type << "\n";
+
     // ----------------------------------------------------------
     // Handle REQUEST message
     // ----------------------------------------------------------
@@ -45,22 +48,26 @@ void DME::handleRaMessage(const std::string &msg)
     {
         int t, fromId;
         iss >> t >> fromId;
+        std::cout << "Extracted timestamp from message: " << t << ", extracted peer Node Id: " << fromId << "\n";
         m_lamportTs = std::max(m_lamportTs, t) + 1;
+        std::cout << "Calculated Lamport timestamp to: " << m_lamportTs << "\n";
 
-        std::cout << "[DME][IN] Received REQUEST for Critical Section from " << fromId << " (ts=" << t << ")\n";
+        std::cout << "[DME][IN] Received REQUEST for Critical Section from Node: " << fromId << " with Lamport ts=" << t
+                  << ")\n";
 
         // Defer reply if currently in CS or has higher priority
-        if (m_inCs || (m_requesting && (m_reqTs < t || (m_reqTs == t && m_selfId < fromId))))
+        std::cout << "Current State - InCS: " << m_inCriticalSection << ", Requesting: " << m_requesting
+                  << ", ReqTs: " << m_reqTs << "\n";
+        if (m_inCriticalSection || (m_requesting && (m_reqTs < t || (m_reqTs == t && m_selfId < fromId))))
         {
             m_deferReply = true;
-            LogLine("[RA] REQUEST from %d (ts=%d) deferred — "
-                    "currently in CS or has higher priority",
-                    fromId, t);
+            std::cout << "[RA] REQUEST from:" << fromId << "ts=" << t
+                      << "deferred — currently in CS or has higher priority\n";
         }
         else
         {
             sendLine("REPLY " + std::to_string(m_selfId));
-            std::cout << "[RA][OUT] REQUEST from node " << fromId << " (timestamp=" << t << ") accepted — "
+            std::cout << "[RA][OUT] REQUEST from peer node " << fromId << " (timestamp=" << t << ") accepted — "
                       << "sent REPLY (permission granted)\n";
         }
     }
@@ -100,7 +107,7 @@ bool DME::requestCriticalSection()
     std::unique_lock<std::mutex> lk(m_mutex);
 
     m_requesting = true;
-    m_inCs = false;
+    m_inCriticalSection = false;
     m_peerReplied = false;
 
     m_lamportTs++;
@@ -120,7 +127,7 @@ bool DME::requestCriticalSection()
     }
 
     m_requesting = false;
-    m_inCs = true;
+    m_inCriticalSection = true;
     std::cout << "[RA] ENTER critical section (permission received)"
               << "\n";
     return true;
@@ -129,10 +136,10 @@ bool DME::requestCriticalSection()
 void DME::releaseCriticalSection()
 {
     std::lock_guard<std::mutex> lk(m_mutex);
-    if (!m_inCs)
+    if (!m_inCriticalSection)
         return;
 
-    m_inCs = false;
+    m_inCriticalSection = false;
     m_lamportTs++;
 
     sendLine("RELEASE " + std::to_string(m_selfId));

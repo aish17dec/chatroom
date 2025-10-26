@@ -40,7 +40,7 @@ class DME
     int m_lamportTs{ 0 };
     int m_reqTs{ 0 };
     bool m_requesting{ false };
-    bool m_inCs{ false };
+    bool m_inCriticalSection{ false };
     bool m_peerReplied{ false };
     bool m_deferReply{ false };
 };
