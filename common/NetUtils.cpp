@@ -1,4 +1,3 @@
-#include "NetUtils.hpp"
 #include <algorithm>
 #include <iostream>
 #include <netdb.h>
@@ -6,6 +5,9 @@
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#include "../Trace.hpp"
+#include "NetUtils.hpp"
 
 /*
  *  NetUtils.cpp
@@ -47,6 +49,7 @@ void SplitHostPort(const std::string &hostPort, std::string &host, std::string &
  */
 int TcpListen(const std::string &hostPort)
 {
+    TRACE_ENTER();
     std::string host, port;
     SplitHostPort(hostPort, host, port);
 
@@ -81,6 +84,8 @@ int TcpListen(const std::string &hostPort)
     }
 
     freeaddrinfo(result);
+
+    TRACE_EXIT();
     return listenFd;
 }
 
@@ -92,6 +97,7 @@ int TcpListen(const std::string &hostPort)
  */
 int TcpConnect(const std::string &host, const std::string &port)
 {
+    TRACE_ENTER();
     struct addrinfo hints
     {
     };
@@ -117,6 +123,7 @@ int TcpConnect(const std::string &host, const std::string &port)
     }
 
     freeaddrinfo(result);
+    TRACE_EXIT();
     return sockFd;
 }
 
@@ -127,8 +134,10 @@ int TcpConnect(const std::string &host, const std::string &port)
  */
 int TcpConnectHostPort(const std::string &hostPort)
 {
+    TRACE_ENTER();
     std::string host, port;
     SplitHostPort(hostPort, host, port);
+    TRACE_EXIT();
     return TcpConnect(host, port);
 }
 
@@ -141,10 +150,12 @@ int TcpConnectHostPort(const std::string &hostPort)
  */
 int RecvLine(int fd, std::string &out, size_t max)
 {
+    TRACE_ENTER();
     out.clear();
     char ch;
     while (out.size() + 1 < max)
     {
+        TRACE_ENTER();
         ssize_t n = ::recv(fd, &ch, 1, 0);
         if (n <= 0)
             return out.empty() ? -1 : static_cast<int>(out.size());
@@ -164,6 +175,7 @@ int RecvLine(int fd, std::string &out, size_t max)
  */
 int SendAll(int fd, const void *buf, size_t len)
 {
+    TRACE_ENTER();
     const char *ptr = static_cast<const char *>(buf);
     size_t totalSent = 0;
 
@@ -174,6 +186,8 @@ int SendAll(int fd, const void *buf, size_t len)
             return -1;
         totalSent += static_cast<size_t>(n);
     }
+
+    TRACE_EXIT();
     return 0;
 }
 
@@ -184,6 +198,7 @@ int SendAll(int fd, const void *buf, size_t len)
  */
 int SendLine(int fd, const std::string &line)
 {
+    TRACE_ENTER();
     std::string msg = line;
     if (msg.empty() || msg.back() != '\n')
         msg.push_back('\n');

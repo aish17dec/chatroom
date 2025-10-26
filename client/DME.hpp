@@ -1,6 +1,7 @@
 #ifndef DME_HPP
 #define DME_HPP
 
+#include "../Trace.hpp"
 #include <condition_variable>
 #include <mutex>
 #include <string>
