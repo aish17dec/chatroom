@@ -10,7 +10,7 @@ echo "=== Updating package lists ==="
 sudo apt update -y
 
 echo "=== Installing make and build tools ==="
-sudo apt install -y make make-guile build-essential
+sudo apt install -y make build-essential
 
 echo "=== Installing snap and tree utility ==="
 sudo snap install tree
