@@ -43,7 +43,7 @@ Name them:
 
 * `chatroom-server`
 * `chatroom-client1`
-* `chatroom-client2`
+* `chatroom-client2`  
 Here is a screenshot from the three instances that I created for this purpose:
 
 <img width="1572" height="130" alt="image" src="https://github.com/user-attachments/assets/aca6a727-4576-4de2-b0e0-4f4405620a53" />
