@@ -365,19 +365,4 @@ At the end, both messages appear timestamped and ordered correctly in the shared
 
 ---
 
-## Summary
-
-**Chatroom Distributed System – Setup and Test Guide**
-
-1. Create 3 EC2 Instances
-2. Create Security Group
-3. Connect to Each Instance
-4. Clone the Repository and Set Up Environment
-5. Compile the Code
-6. Start the Server
-7. Start the Clients
-8. Test the Application
-
 ---
-
-Would you like me to save this as a downloadable `Instructions.md` file formatted for your GitHub Wiki (with proper link anchors and code block syntax)?
