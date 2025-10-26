@@ -1,10 +1,14 @@
 #include "../common/Logger.hpp"
 #include "../common/NetUtils.hpp"
+#include <arpa/inet.h>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <netinet/in.h>
 #include <sstream>
 #include <string>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 /*
@@ -21,7 +25,7 @@
 
 static std::string g_file = "chat.txt";
 
-static void HandleView(int clientFd, const std::string &line)
+static void HandleView(int clientFd)
 {
     std::cout << "[SERVER] VIEW request received" << std::endl;
     std::ifstream file(g_file);
@@ -106,7 +110,7 @@ int main(int argc, char **argv)
 
         if (line.rfind("VIEW", 0) == 0)
         {
-            HandleView(clientFd, line);
+            HandleView(clientFd);
         }
         else if (line.rfind("POST ", 0) == 0)
         {
