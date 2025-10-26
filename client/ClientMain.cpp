@@ -78,6 +78,8 @@ static void userInputLoop(const std::string &userName, const std::string &server
         if (input == "quit")
             break;
 
+        // Handle VIEW command, user wants to see chat messages
+        // Supports "view"
         if (input == "view" || input.rfind("view -n", 0) == 0)
         {
             int sfd = TcpConnectHostPort(serverAddr);
@@ -86,6 +88,9 @@ static void userInputLoop(const std::string &userName, const std::string &server
                 std::cout << "Server unreachable\n";
                 continue;
             }
+
+            // Send VIEW command to server and print response lines
+            // until "." line is received
             SendLine(sfd, input == "view" ? "VIEW" : input);
             std::string header;
             if (RecvLine(sfd, header) <= 0 || header.rfind("OK", 0) != 0)

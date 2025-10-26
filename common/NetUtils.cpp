@@ -160,13 +160,10 @@ int TcpConnect(const std::string &host, const std::string &port)
  */
 int TcpConnectHostPort(const std::string &hostPort)
 {
-    TRACE_ENTER();
     DEBUG_LOG("TcpConnectHostPort() input: %s", hostPort.c_str());
     std::string host, port;
     SplitHostPort(hostPort, host, port);
     int fd = TcpConnect(host, port);
-    DEBUG_LOG("TcpConnectHostPort(): TcpConnect() returned fd=%d", fd);
-    TRACE_EXIT();
     return fd;
 }
 
@@ -208,9 +205,6 @@ int RecvLine(int fd, std::string &out, size_t max)
  */
 int SendAll(int fd, const void *buf, size_t len)
 {
-    TRACE_ENTER();
-    DEBUG_LOG("SendAll() fd=%d, len=%zu", fd, len);
-
     const char *ptr = static_cast<const char *>(buf);
     size_t totalSent = 0;
 
@@ -227,7 +221,6 @@ int SendAll(int fd, const void *buf, size_t len)
     }
 
     DEBUG_LOG("SendAll(): completed successfully for fd=%d", fd);
-    TRACE_EXIT();
     return 0;
 }
 
@@ -238,8 +231,6 @@ int SendAll(int fd, const void *buf, size_t len)
  */
 int SendLine(int fd, const std::string &line)
 {
-    TRACE_ENTER();
-    DEBUG_LOG("SendLine() fd=%d, line='%s'", fd, line.c_str());
     std::string msg = line;
     if (msg.empty() || msg.back() != '\n')
     {
