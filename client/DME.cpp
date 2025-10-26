@@ -11,15 +11,24 @@ DME::DME(int selfId, int peerId, int peerFd) : m_selfId(selfId), m_peerId(peerId
 {
 }
 
+/**
+ * @brief Send a Ricart–Agrawala message to the peer.
+ * Ensures each line ends with '\n' so the peer’s RecvLine() returns correctly.
+ */
 void DME::sendLine(const std::string &line)
 {
     std::string out = line;
     if (out.empty() || out.back() != '\n')
         out.push_back('\n');
+
     SendAll(m_peerFd, out.c_str(), out.size());
-    LogLine("SEND %s", out.c_str());
+    LogLine("[RA] Sent message: %s", out.c_str());
 }
 
+/**
+ * @brief Handle incoming Ricart–Agrawala messages.
+ * Supports REQUEST, REPLY, and RELEASE message types.
+ */
 void DME::handleRaMessage(const std::string &msg)
 {
     std::istringstream iss(msg);
@@ -28,47 +37,62 @@ void DME::handleRaMessage(const std::string &msg)
 
     std::unique_lock<std::mutex> lk(m_mutex);
 
-    if (type == "REQ")
+    // ----------------------------------------------------------
+    // Handle REQUEST message
+    // ----------------------------------------------------------
+    if (type == "REQUEST")
     {
         int t, fromId;
         iss >> t >> fromId;
         m_lamportTs = std::max(m_lamportTs, t) + 1;
 
-        bool defer = false;
+        // Defer reply if currently in CS or has higher priority
         if (m_inCs || (m_requesting && (m_reqTs < t || (m_reqTs == t && m_selfId < fromId))))
         {
-            defer = true;
             m_deferReply = true;
+            LogLine("[RA] REQUEST from %d (ts=%d) deferred — "
+                    "currently in CS or has higher priority",
+                    fromId, t);
         }
-
-        if (!defer)
+        else
         {
-            sendLine("REP " + std::to_string(m_selfId));
-            LogLine("SEND REP to %d", fromId);
+            sendLine("REPLY " + std::to_string(m_selfId));
+            LogLine("[RA] REQUEST from %d (ts=%d) accepted — "
+                    "sent REPLY (permission granted)",
+                    fromId, t);
         }
     }
-    else if (type == "REP")
+
+    // ----------------------------------------------------------
+    // Handle REPLY message
+    // ----------------------------------------------------------
+    else if (type == "REPLY")
     {
         int fromId;
         iss >> fromId;
         m_peerReplied = true;
-        LogLine("RECV REP from %d", fromId);
+        LogLine("[RA] Received REPLY (permission granted) from peer %d", fromId);
         m_cv.notify_all();
     }
-    else if (type == "REL")
+
+    // ----------------------------------------------------------
+    // Handle RELEASE message
+    // ----------------------------------------------------------
+    else if (type == "RELEASE")
     {
         int fromId;
         iss >> fromId;
-        LogLine("RECV REL from %d", fromId);
+        LogLine("[RA] Received RELEASE from %d — peer exited CS", fromId);
+
         if (m_deferReply)
         {
-            sendLine("REP " + std::to_string(m_selfId));
+            sendLine("REPLY " + std::to_string(m_selfId));
             m_deferReply = false;
+            LogLine("[RA] Sent deferred REPLY to %d after receiving RELEASE", fromId);
         }
     }
 }
-
-bool DME::requestCs()
+bool DME::requestCriticalSection()
 {
     std::unique_lock<std::mutex> lk(m_mutex);
 
@@ -79,13 +103,14 @@ bool DME::requestCs()
     m_lamportTs++;
     m_reqTs = m_lamportTs;
 
-    sendLine("REQ " + std::to_string(m_reqTs) + " " + std::to_string(m_selfId));
+    sendLine("REQUEST " + std::to_string(m_reqTs) + " " + std::to_string(m_selfId));
+    LogLine("[RA] REQUEST sent to peer %d (ts=%d)", m_peerId, m_reqTs);
 
     while (!m_peerReplied)
     {
         if (m_cv.wait_for(lk, std::chrono::seconds(10)) == std::cv_status::timeout)
         {
-            LogLine("TIMEOUT waiting for REP");
+            LogLine("[RA] TIMEOUT waiting for REPLY from peer %d", m_peerId);
             m_requesting = false;
             return false;
         }
@@ -93,11 +118,11 @@ bool DME::requestCs()
 
     m_requesting = false;
     m_inCs = true;
-    LogLine("ENTER CS");
+    LogLine("[RA] ENTER critical section (permission received)");
     return true;
 }
 
-void DME::releaseCs()
+void DME::releaseCriticalSection()
 {
     std::lock_guard<std::mutex> lk(m_mutex);
     if (!m_inCs)
@@ -105,6 +130,7 @@ void DME::releaseCs()
 
     m_inCs = false;
     m_lamportTs++;
-    sendLine("REL " + std::to_string(m_selfId));
-    LogLine("SEND REL");
+
+    sendLine("RELEASE " + std::to_string(m_selfId));
+    LogLine("[RA] RELEASE sent — leaving critical section");
 }

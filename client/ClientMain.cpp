@@ -106,7 +106,7 @@ static void userInputLoop(const std::string &userName, const std::string &server
         }
         else if (input.rfind("post ", 0) == 0)
         {
-            if (!dme->requestCs())
+            if (!dme->requestCriticalSection())
             {
                 std::cout << "Could not acquire lock (peer unresponsive)\n";
                 continue;
@@ -116,7 +116,7 @@ static void userInputLoop(const std::string &userName, const std::string &server
             if (sfd < 0)
             {
                 std::cout << "Server unreachable\n";
-                dme->releaseCs();
+                dme->releaseCriticalSection();
                 continue;
             }
 
@@ -133,7 +133,7 @@ static void userInputLoop(const std::string &userName, const std::string &server
                 std::cout << "POST failed\n";
 
             ::close(sfd);
-            dme->releaseCs();
+            dme->releaseCriticalSection();
         }
     }
 }

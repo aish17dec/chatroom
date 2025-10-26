@@ -14,8 +14,8 @@ class DME
   public:
     DME(int selfId, int peerId, int peerFd);
 
-    bool requestCs(); // Request critical section
-    void releaseCs(); // Release critical section
+    bool requestCriticalSection(); // Request critical section
+    void releaseCriticalSection(); // Release critical section
     void handleRaMessage(const std::string &line);
 
     int getSelfId() const
