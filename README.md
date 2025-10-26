@@ -325,12 +325,6 @@ You should now see:
 [2025-10-26 16:12:08] [CLIENT] 
 ```
 
-While **Client 1** is posting, try posting simultaneously from **Client 2**:
-
-```
-> post "Client 2 posting at the same time"
-```
-
 ---
 
 ## 9. Check Server Logs
