@@ -1,77 +1,57 @@
-#pragma once
-#include <string>
-#include <queue>
+#ifndef DME_HPP
+#define DME_HPP
+
+#include <condition_variable>
 #include <mutex>
-#include <atomic>
+#include <string>
 
 /*
- *  DME.hpp
- *  --------
- *  Implements Ricart–Agrawala Distributed Mutual Exclusion
- *  for two user nodes (peer-to-peer coordination).
+ * Ricart–Agrawala (two-node) DME
+ * Messages:
+ *   REQ <ts> <fromId>
+ *   REP <fromId>
+ *   REL <fromId>
  *
- *  States:
- *    RELEASED – not in CS and not requesting
- *    WANTED   – requested access, waiting for REPLY
- *    HELD     – currently in CS (critical section)
- *
- *  Messages:
- *    REQ <timestamp> <senderId>
- *    REP <timestamp> <senderId>
- *    REL <timestamp> <senderId>
- */
-
-enum class State
-{
-    RELEASED,
-    WANTED,
-    HELD
-};
-
-// Represents a deferred request from another node.
-struct Request
-{
-    int timestamp;
-    int nodeId;
-};
-
-/*
- *  DME (Distributed Mutual Exclusion)
- *  ----------------------------------
- *  Handles the logic for acquiring and releasing the critical
- *  section using the Ricart–Agrawala algorithm.
+ * Usage:
+ *   - requestCs() blocks until REP from peer (or times out -> false)
+ *   - releaseCs() sends REL and flushes any deferred reply
+ *   - handleRaMessage(line) processes REQ/REP/REL from peer thread
  */
 class DME
 {
-public:
+  public:
     DME(int selfId, int peerId, int peerFd);
 
-    // Requests to enter the critical section.
-    // Returns true if granted, false if peer unresponsive.
-    bool requestCs();
+    bool requestCs(); // acquire (blocks until REP or timeout)
+    void releaseCs(); // release (sends REL; flush deferred REP)
+    void handleRaMessage(const std::string &line);
 
-    // Releases the critical section and replies to deferred requests.
-    void releaseCs();
+    int getSelfId() const
+    {
+        return m_selfId;
+    }
+    int getPeerId() const
+    {
+        return m_peerId;
+    }
 
-    // Handles an incoming RA message (REQ / REP / REL).
-    void handleRaMessage(const std::string& line);
+  private:
+    void sendLine(const std::string &line); // ensures trailing '\n'
 
-    // Accessor for Lamport clock (for logging/debug).
-    int lamportClock() const { return m_lamport; }
+    // state protected by m_mutex
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
 
-private:
-    int m_selfId;                  // This node’s ID (1 or 2)
-    int m_peerId;                  // Peer node’s ID
-    int m_peerFd;                  // Connected socket to peer
-    int m_lamport;                 // Lamport logical clock
-    State m_state;                 // Current node state
-    std::queue<Request> m_deferredRequests; // Deferred peer requests
-    std::mutex m_mutex;            // Protect shared state
-    std::atomic<bool> m_hasReply;  // True if peer has granted permission
+    const int m_selfId;
+    const int m_peerId;
+    const int m_peerFd;
 
-    // Helper methods for sending RA protocol messages.
-    void sendRaMessage(const std::string& type);
-    void sendReply();
-    void flushDeferredReplies();
+    int m_lamportTs{ 0 };
+    int m_reqTs{ 0 };
+    bool m_requesting{ false };
+    bool m_inCs{ false };
+    bool m_peerReplied{ false };
+    bool m_deferReply{ false };
 };
 
+#endif

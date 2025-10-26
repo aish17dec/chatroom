@@ -1,6 +1,7 @@
 #include "../common/Logger.hpp"
 #include "../common/NetUtils.hpp"
 #include "DME.hpp"
+
 #include <arpa/inet.h>
 #include <chrono>
 #include <cstdio>
@@ -9,37 +10,49 @@
 #include <ctime>
 #include <iostream>
 #include <string>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <thread>
 #include <unistd.h>
 
-/*
- *  ClientMain.cpp
- *  ---------------
- *  Implements the user-side chat client with:
- *   - VIEW (non-critical)
- *   - POST (critical; uses DME)
- *  Communication:
- *   - To File Server: VIEW / POST commands
- *   - To Peer Node:   REQ / REP / REL messages (DME)
- *
- *  This version adds a permanent peer-connection retry loop so that
- *  the client can start in any order and will patiently wait until
- *  the peer node becomes available.
- */
-
-static void formatTimestamp(char *buffer, size_t size)
+/* Timestamp formatter for chat lines */
+static void formatTimestamp(char *buf, size_t n)
 {
     std::time_t t = std::time(nullptr);
     std::tm tm{};
     localtime_r(&t, &tm);
-    std::strftime(buffer, size, "%d %b %I:%M %p", &tm);
+    std::strftime(buf, n, "%d %b %I:%M %p", &tm);
 }
 
-/*
- * Background thread: listens for incoming RA messages
- * from the peer node and forwards them to DME::handleRaMessage().
- */
-static void peerListener(int listenFd, DME *dme)
+/* Connect to peer; keep retrying forever so start order doesn't matter */
+static int connectPeerForever(const std::string &addr)
+{
+    const auto pos = addr.find(':');
+    if (pos == std::string::npos)
+    {
+        std::cerr << "Invalid --peer " << addr << std::endl;
+        return -1;
+    }
+    const std::string host = addr.substr(0, pos);
+    const std::string port = addr.substr(pos + 1);
+
+    int fd = -1, attempt = 0;
+    while (true)
+    {
+        fd = TcpConnect(host, port);
+        if (fd >= 0)
+        {
+            std::cout << "Connected to peer " << addr << " after " << attempt << " attempts.\n";
+            return fd;
+        }
+        ++attempt;
+        std::cout << "Peer not ready, retrying in 2s... (attempt " << attempt << ")\n";
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+    }
+}
+
+/* Peer thread: accept RA messages and forward to DME */
+static void peerAcceptLoop(int listenFd, DME *dme)
 {
     while (true)
     {
@@ -50,104 +63,19 @@ static void peerListener(int listenFd, DME *dme)
         std::string line;
         while (RecvLine(connFd, line) > 0)
         {
+            // Keep the newline exactly as received for the parser
+            std::cout << "[CLIENT " << dme->getSelfId() << "] peer->me: " << line;
             dme->handleRaMessage(line);
         }
         ::close(connFd);
     }
 }
 
-/*
- * Attempts to connect to the peer and keeps retrying indefinitely
- * until the peer node is reachable. This makes startup order irrelevant.
- */
-static int connectToPeerForever(const std::string &peerAddress)
+/* User thread: handle CLI commands view / post / quit */
+static void userInputLoop(const std::string &userName, const std::string &serverAddr, DME *dme)
 {
-    std::string host, port;
-    size_t pos = peerAddress.find(':');
-    if (pos == std::string::npos)
-    {
-        std::cerr << "Invalid peer address format: " << peerAddress << std::endl;
-        return -1;
-    }
-
-    host = peerAddress.substr(0, pos);
-    port = peerAddress.substr(pos + 1);
-
-    int peerFd = -1;
-    int attempt = 0;
-
-    while (true)
-    {
-        peerFd = TcpConnect(host, port);
-        if (peerFd >= 0)
-        {
-            std::cout << "Connected to peer " << peerAddress << " after " << attempt << " attempts." << std::endl;
-            return peerFd;
-        }
-
-        ++attempt;
-        std::cout << "Peer not ready, retrying in 2s... (attempt " << attempt << ")\n";
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-    }
-}
-
-int main(int argc, char **argv)
-{
-    std::string userName = "User";
-    int selfId = 1;
-    int peerId = 2;
-    std::string peerAddress = "127.0.0.1:8002";
-    std::string serverAddress = "127.0.0.1:7000";
-    std::string listenAddress = "0.0.0.0:8001";
-
-    // Parse CLI arguments
-    for (int i = 1; i < argc; ++i)
-    {
-        if (!strcmp(argv[i], "--user") && i + 1 < argc)
-            userName = argv[++i];
-        else if (!strcmp(argv[i], "--self-id") && i + 1 < argc)
-            selfId = std::atoi(argv[++i]);
-        else if (!strcmp(argv[i], "--peer-id") && i + 1 < argc)
-            peerId = std::atoi(argv[++i]);
-        else if (!strcmp(argv[i], "--peer") && i + 1 < argc)
-            peerAddress = argv[++i];
-        else if (!strcmp(argv[i], "--server") && i + 1 < argc)
-            serverAddress = argv[++i];
-        else if (!strcmp(argv[i], "--listen") && i + 1 < argc)
-            listenAddress = argv[++i];
-    }
-
-    // Initialise logging
-    char logPrefix[32];
-    std::snprintf(logPrefix, sizeof logPrefix, "client-%d", selfId);
-    InitLogger(logPrefix);
-
-    // Listen for peer RA messages
-    int peerListenFd = TcpListen(listenAddress);
-    if (peerListenFd < 0)
-    {
-        std::perror("listen peer");
-        return 1;
-    }
-
-    // Connect to peer (wait forever until available)
-    int peerFd = connectToPeerForever(peerAddress);
-    if (peerFd < 0)
-    {
-        std::cerr << "Peer connection failed unexpectedly.\n";
-        return 1;
-    }
-
-    // Construct the DME object
-    DME dme(selfId, peerId, peerFd);
-
-    // Start listener thread for peer messages
-    std::thread peerThread(peerListener, peerListenFd, &dme);
-    peerThread.detach();
-
-    // CLI loop
     std::cout << "Chat Room — DC Assignment II\n";
-    std::cout << "User: " << userName << " (self=" << selfId << ", peer=" << peerId << ")\n";
+    std::cout << "User: " << userName << " (self=" << dme->getSelfId() << ", peer=" << dme->getPeerId() << ")\n";
     std::cout << "Commands: view | post \"text\" | quit\n";
 
     std::string input;
@@ -160,13 +88,13 @@ int main(int argc, char **argv)
         if (input == "quit")
             break;
 
-        // Handle VIEW
+        // Non-critical read
         if (input == "view" || input.rfind("view -n", 0) == 0)
         {
-            int sfd = TcpConnectHostPort(serverAddress);
+            int sfd = TcpConnectHostPort(serverAddr);
             if (sfd < 0)
             {
-                std::cout << "Error: cannot reach server\n";
+                std::cout << "Server unreachable\n";
                 continue;
             }
 
@@ -189,45 +117,99 @@ int main(int argc, char **argv)
             }
             ::close(sfd);
         }
-
-        // Handle POST (Critical Section)
+        // Critical write
         else if (input.rfind("post ", 0) == 0)
         {
-            if (!dme.requestCs())
+            if (!dme->requestCs())
             {
                 std::cout << "Could not acquire lock (peer unresponsive)\n";
                 continue;
             }
 
-            int sfd = TcpConnectHostPort(serverAddress);
+            int sfd = TcpConnectHostPort(serverAddr);
             if (sfd < 0)
             {
                 std::cout << "Server unreachable\n";
-                dme.releaseCs();
+                dme->releaseCs();
                 continue;
             }
 
-            char timestamp[64];
-            formatTimestamp(timestamp, sizeof timestamp);
-            std::string text = input.substr(5);
-            std::string payload = "POST " + std::string(timestamp) + " " + userName + ": " + text;
+            char ts[64];
+            formatTimestamp(ts, sizeof ts);
+            std::string text = input.substr(5); // after "post "
+            std::string payload = std::string("POST ") + ts + " " + userName + ": " + text;
             SendLine(sfd, payload);
 
-            std::string response;
-            if (RecvLine(sfd, response) > 0 && response.rfind("OK", 0) == 0)
+            std::string resp;
+            if (RecvLine(sfd, resp) > 0 && resp.rfind("OK", 0) == 0)
                 std::cout << "(posted)\n";
             else
                 std::cout << "POST failed\n";
 
             ::close(sfd);
-            dme.releaseCs();
+            dme->releaseCs();
         }
-
         else
         {
             std::cout << "Commands: view | post \"text\" | quit\n";
         }
     }
+}
 
+int main(int argc, char **argv)
+{
+    std::string userName = "User";
+    int selfId = 1;
+    int peerId = 2;
+    std::string peerAddr = "127.0.0.1:8002";
+    std::string serverAddr = "127.0.0.1:7000";
+    std::string listenAddr = "0.0.0.0:8001";
+
+    // Parse CLI
+    for (int i = 1; i < argc; ++i)
+    {
+        if (!strcmp(argv[i], "--user") && i + 1 < argc)
+            userName = argv[++i];
+        else if (!strcmp(argv[i], "--self-id") && i + 1 < argc)
+            selfId = std::atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--peer-id") && i + 1 < argc)
+            peerId = std::atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--peer") && i + 1 < argc)
+            peerAddr = argv[++i];
+        else if (!strcmp(argv[i], "--server") && i + 1 < argc)
+            serverAddr = argv[++i];
+        else if (!strcmp(argv[i], "--listen") && i + 1 < argc)
+            listenAddr = argv[++i];
+    }
+
+    // Logging
+    char prefix[32];
+    std::snprintf(prefix, sizeof prefix, "client-%d", selfId);
+    InitLogger(prefix);
+
+    // 1) Peer listen socket (for incoming RA)
+    int listenFd = TcpListen(listenAddr);
+    if (listenFd < 0)
+    {
+        std::perror("listen peer");
+        return 1;
+    }
+
+    // 2) Peer connect (for outgoing RA) — retry forever
+    int peerFd = connectPeerForever(peerAddr);
+    if (peerFd < 0)
+        return 1;
+
+    // 3) DME object shared by both threads
+    DME dme(selfId, peerId, peerFd);
+
+    // 4) Start the two threads
+    std::thread tPeer(peerAcceptLoop, listenFd, &dme);            // RA listener
+    std::thread tUser(userInputLoop, userName, serverAddr, &dme); // CLI
+
+    // 5) Wait for CLI to finish; RA thread runs as a service
+    tUser.join();
+
+    // We keep it simple: exit process (peer thread will be torn down by OS).
     return 0;
 }

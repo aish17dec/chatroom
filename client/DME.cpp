@@ -1,150 +1,127 @@
 #include "DME.hpp"
 #include "../common/Logger.hpp"
 #include "../common/NetUtils.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <sstream>
 #include <thread>
 
-/*
- *  DME.cpp
- *  --------
- *  Implements Ricart–Agrawala logic.
- */
-
-DME::DME(int selfId, int peerId, int peerFd)
-    : m_selfId(selfId), m_peerId(peerId), m_peerFd(peerFd), m_lamport(0), m_state(State::RELEASED), m_hasReply(false)
+DME::DME(int selfId, int peerId, int peerFd) : m_selfId(selfId), m_peerId(peerId), m_peerFd(peerFd)
 {
 }
 
-/*
- *  sendRaMessage()
- *  ----------------
- *  Sends a single Ricart–Agrawala message over the TCP socket.
- *  Format: "TYPE timestamp senderId\n"
- */
-void DME::sendRaMessage(const std::string &type)
+/* Always append '\n' so peer's RecvLine() returns */
+void DME::sendLine(const std::string &line)
 {
-    std::string msg = type + " " + std::to_string(m_lamport) + " " + std::to_string(m_selfId);
-    SendLine(m_peerFd, msg);
-    LogLine("SEND %s ts=%d id=%d", type.c_str(), m_lamport, m_selfId);
+    std::string out = line;
+    if (out.empty() || out.back() != '\n')
+        out.push_back('\n');
+    SendAll(m_peerFd, out.c_str(), out.size());
+    LogLine("SEND %s", out.c_str());
 }
 
-/*
- *  sendReply()
- *  ------------
- *  Sends a REPLY message to the peer.
- */
-void DME::sendReply()
+/* Handle incoming REQ/REP/REL (called by peer thread) */
+void DME::handleRaMessage(const std::string &msg)
 {
-    m_lamport++;
-    sendRaMessage("REP");
-}
-
-/*
- *  flushDeferredReplies()
- *  -----------------------
- *  Sends REPLY messages for all deferred peer requests
- *  (called after exiting the critical section).
- */
-void DME::flushDeferredReplies()
-{
-    while (!m_deferredRequests.empty())
-    {
-        m_deferredRequests.pop();
-        sendReply();
-    }
-}
-
-/*
- *  requestCs()
- *  ------------
- *  Attempts to enter the critical section.
- *  Steps:
- *    1. Increment Lamport clock.
- *    2. Send REQ to peer.
- *    3. Wait for REP or timeout.
- *    4. If granted, state = HELD.
- */
-bool DME::requestCs()
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_lamport++;
-    m_state = State::WANTED;
-    m_hasReply = false;
-    sendRaMessage("REQ");
-
-    // Wait up to 5 seconds for reply
-    for (int i = 0; i < 5000; ++i)
-    {
-        if (m_hasReply.load())
-        {
-            m_state = State::HELD;
-            LogLine("ENTER CS (HELD)");
-            return true;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-
-    LogLine("TIMEOUT waiting for REP from peer (may be down)");
-    return false;
-}
-
-/*
- *  releaseCs()
- *  ------------
- *  Called after leaving the critical section.
- *  Sends REL message and replies to deferred requests.
- */
-void DME::releaseCs()
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_state = State::RELEASED;
-    m_lamport++;
-    sendRaMessage("REL");
-    LogLine("EXIT CS (RELEASED)");
-    flushDeferredReplies();
-}
-
-/*
- *  handleRaMessage()
- *  -----------------
- *  Handles incoming RA messages from the peer.
- *  Updates Lamport clock and acts according to message type.
- */
-void DME::handleRaMessage(const std::string &line)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    std::istringstream iss(line);
+    std::istringstream iss(msg);
     std::string type;
-    int ts, senderId;
-    if (!(iss >> type >> ts >> senderId))
-        return;
+    iss >> type;
 
-    // Synchronise Lamport clock
-    m_lamport = std::max(m_lamport, ts) + 1;
+    std::unique_lock<std::mutex> lk(m_mutex);
 
     if (type == "REQ")
     {
-        // Determine if we should reply immediately or defer
-        bool replyNow = (m_state == State::RELEASED) ||
-                        (m_state == State::WANTED && (ts < m_lamport || (ts == m_lamport && senderId < m_selfId)));
+        int t, fromId;
+        iss >> t >> fromId;
 
-        LogLine("RECV REQ ts=%d id=%d (L=%d) => %s", ts, senderId, m_lamport, replyNow ? "REPLY" : "DEFER");
+        // Lamport update
+        m_lamportTs = std::max(m_lamportTs, t) + 1;
 
-        if (replyNow)
-            sendReply();
-        else
-            m_deferredRequests.push({ ts, senderId });
+        bool shouldDefer = false;
+
+        // Defer if:
+        //  - we are in CS, or
+        //  - we are requesting and our request has priority (lower ts or tie-breaker by id)
+        if (m_inCs || (m_requesting && (m_reqTs < t || (m_reqTs == t && m_selfId < fromId))))
+        {
+            shouldDefer = true;
+            m_deferReply = true;
+            LogLine("DEFER to %d (ts=%d)", fromId, t);
+        }
+
+        if (!shouldDefer)
+        {
+            sendLine("REP " + std::to_string(m_selfId));
+            LogLine("SEND REP to %d", fromId);
+        }
     }
     else if (type == "REP")
     {
-        LogLine("RECV REP from id=%d (L=%d)", senderId, m_lamport);
-        m_hasReply.store(true);
+        int fromId;
+        iss >> fromId;
+        m_peerReplied = true;
+        LogLine("RECV REP from %d", fromId);
+        m_cv.notify_all();
     }
     else if (type == "REL")
     {
-        LogLine("RECV REL from id=%d (L=%d)", senderId, m_lamport);
-        // No special handling in 2-node RA
+        int fromId;
+        iss >> fromId;
+        LogLine("RECV REL from %d", fromId);
+
+        if (m_deferReply)
+        {
+            sendLine("REP " + std::to_string(m_selfId));
+            LogLine("SEND deferred REP to %d", fromId);
+            m_deferReply = false;
+        }
     }
+    // else: ignore malformed
+}
+
+/* Request the critical section (block until REP or timeout) */
+bool DME::requestCs()
+{
+    std::unique_lock<std::mutex> lk(m_mutex);
+
+    m_requesting = true;
+    m_inCs = false;
+    m_peerReplied = false;
+
+    m_lamportTs++;
+    m_reqTs = m_lamportTs;
+
+    sendLine("REQ " + std::to_string(m_reqTs) + " " + std::to_string(m_selfId));
+    LogLine("SEND REQ ts=%d", m_reqTs);
+
+    // Wait until peer replies (or timeout -> false)
+    while (!m_peerReplied)
+    {
+        if (m_cv.wait_for(lk, std::chrono::seconds(10)) == std::cv_status::timeout)
+        {
+            LogLine("TIMEOUT waiting for REP");
+            m_requesting = false;
+            return false;
+        }
+    }
+
+    // Enter CS
+    m_requesting = false;
+    m_inCs = true;
+    LogLine("ENTER CS");
+    return true;
+}
+
+/* Release the critical section */
+void DME::releaseCs()
+{
+    std::lock_guard<std::mutex> lk(m_mutex);
+    if (!m_inCs)
+        return;
+
+    m_inCs = false;
+    m_lamportTs++;
+    sendLine("REL " + std::to_string(m_selfId));
+    LogLine("SEND REL");
 }
