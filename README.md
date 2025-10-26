@@ -129,11 +129,14 @@ Run on each node (Server, Client1, Client2):
 
 ```bash
 git clone https://github.com/vivekbhadra/chatroom.git
+```  
+This will create a new folde in your present directory called chatroom.  
+Go inside chatroom and run the following script:  
+```
 cd chatroom
 ./setup.sh
 ```
-
-The script will:
+This script will:
 
 * Update your package list
 * Install **make**, **build-essential**, and **tree**
