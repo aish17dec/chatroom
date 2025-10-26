@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -O2 -std=c++17 -Wall -Wextra -D_POSIX_C_SOURCE=200809L
+CXXFLAGS := -O2 -std=c++17 -Wall -Wextra 
 LDFLAGS := 
 
 .PHONY: all clean pack server client

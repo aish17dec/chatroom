@@ -5,7 +5,7 @@
 
 # Compiler and flags
 CXX       ?= g++
-CXXFLAGS  ?= -O2 -std=c++17 -Wall -Wextra -pedantic -D_POSIX_C_SOURCE=200809L
+CXXFLAGS  ?= -O2 -std=c++17 -Wall -Wextra -pedantic 
 LDFLAGS   ?=
 
 # Paths
