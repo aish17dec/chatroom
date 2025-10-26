@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <iostream>
 #include <sstream>
 #include <thread>
 
@@ -22,7 +23,7 @@ void DME::sendLine(const std::string &line)
         out.push_back('\n');
 
     SendAll(m_peerFd, out.c_str(), out.size());
-    LogLine("[RA] Sent message: %s", out.c_str());
+    std::cout << "[RA] Sent message: %s" << out.c_str() << "\n";
 }
 
 /**
@@ -46,6 +47,8 @@ void DME::handleRaMessage(const std::string &msg)
         iss >> t >> fromId;
         m_lamportTs = std::max(m_lamportTs, t) + 1;
 
+        std::cout << "[DME][IN] Received REQUEST for Critical Section from " << fromId << " (ts=" << t << ")\n";
+
         // Defer reply if currently in CS or has higher priority
         if (m_inCs || (m_requesting && (m_reqTs < t || (m_reqTs == t && m_selfId < fromId))))
         {
@@ -57,9 +60,8 @@ void DME::handleRaMessage(const std::string &msg)
         else
         {
             sendLine("REPLY " + std::to_string(m_selfId));
-            LogLine("[RA] REQUEST from %d (ts=%d) accepted — "
-                    "sent REPLY (permission granted)",
-                    fromId, t);
+            std::cout << "[RA][OUT] REQUEST from node " << fromId << " (timestamp=" << t << ") accepted — "
+                      << "sent REPLY (permission granted)\n";
         }
     }
 
@@ -71,7 +73,7 @@ void DME::handleRaMessage(const std::string &msg)
         int fromId;
         iss >> fromId;
         m_peerReplied = true;
-        LogLine("[RA] Received REPLY (permission granted) from peer %d", fromId);
+        std::cout << "[RA] Received REPLY (permission granted) from peer " << fromId << "\n";
         m_cv.notify_all();
     }
 
@@ -82,13 +84,14 @@ void DME::handleRaMessage(const std::string &msg)
     {
         int fromId;
         iss >> fromId;
-        LogLine("[RA] Received RELEASE from %d — peer exited CS", fromId);
+        std::cout << "[RA] Received RELEASE from " << fromId << " — peer exited CS \n";
 
         if (m_deferReply)
         {
             sendLine("REPLY " + std::to_string(m_selfId));
             m_deferReply = false;
-            LogLine("[RA] Sent deferred REPLY to %d after receiving RELEASE", fromId);
+            std::cout << "[RA] Sent deferred REPLY to " << fromId << "  after receiving RELEASE"
+                      << "\n";
         }
     }
 }
@@ -104,13 +107,13 @@ bool DME::requestCriticalSection()
     m_reqTs = m_lamportTs;
 
     sendLine("REQUEST " + std::to_string(m_reqTs) + " " + std::to_string(m_selfId));
-    LogLine("[RA] REQUEST sent to peer %d (ts=%d)", m_peerId, m_reqTs);
+    std::cout << "[RA] REQUEST sent to peer ID: " << m_peerId << " request ID:" << m_reqTs;
 
     while (!m_peerReplied)
     {
         if (m_cv.wait_for(lk, std::chrono::seconds(10)) == std::cv_status::timeout)
         {
-            LogLine("[RA] TIMEOUT waiting for REPLY from peer %d", m_peerId);
+            std::cout << "[RA] TIMEOUT waiting for REPLY from peer " << m_peerId << "\n";
             m_requesting = false;
             return false;
         }
@@ -118,7 +121,8 @@ bool DME::requestCriticalSection()
 
     m_requesting = false;
     m_inCs = true;
-    LogLine("[RA] ENTER critical section (permission received)");
+    std::cout << "[RA] ENTER critical section (permission received)"
+              << "\n";
     return true;
 }
 
@@ -132,5 +136,6 @@ void DME::releaseCriticalSection()
     m_lamportTs++;
 
     sendLine("RELEASE " + std::to_string(m_selfId));
-    LogLine("[RA] RELEASE sent — leaving critical section");
+    std::cout << "[RA] RELEASE sent — leaving critical section"
+              << "\n";
 }

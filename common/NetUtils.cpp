@@ -193,7 +193,6 @@ int RecvLine(int fd, std::string &out, size_t max)
         out.push_back(ch);
         if (ch == '\n')
         {
-            DEBUG_LOG("RecvLine(): newline received, line='%s'", out.c_str());
             break;
         }
     }
