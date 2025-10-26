@@ -336,6 +336,30 @@ On the server:
 ```
 
 You’ll observe all `VIEW` and `POST` requests, file updates, and connection logs.
+```
+ubuntu@ip-172-31-23-9:~/chatroom$ ./start_server.sh 
+Executing: ./bin/server --bind 0.0.0.0:7000 --file ./chat.txt
+[2025-10-26 16:09:05] [SERVER] Starting on 0.0.0.0:7000 using file: ./chat.txt
+[2025-10-26 16:09:05] [NET] TcpListen() called with hostPort=0.0.0.0:7000
+[2025-10-26 16:09:05] [NET] SplitHostPort(): host=0.0.0.0, port=7000
+[2025-10-26 16:09:05] [NET] Creating socket: family=2, socktype=1, protocol=6
+[2025-10-26 16:09:05] [NET] Attempting bind() and listen() on socket fd=3
+[2025-10-26 16:09:05] [NET] TcpListen(): Successfully bound and listening on fd=3
+[2025-10-26 16:09:05] [SERVER] Listening for connections...
+[2025-10-26 16:10:36] [SERVER] Received line: "VIEW
+"
+[2025-10-26 16:10:36] [SERVER] VIEW request served. File size: 65 bytes
+[2025-10-26 16:10:36] [SERVER] Connection closed
+[2025-10-26 16:11:15] [SERVER] Received line: "POST 26 Oct 04:11 PM Lucy: "Hello from Client 1 – testing DME"
+"
+[2025-10-26 16:11:15] [SERVER] POST appended: 26 Oct 04:11 PM Lucy: "Hello from Client 1 – testing DME"
+
+[2025-10-26 16:11:15] [SERVER] Connection closed
+[2025-10-26 16:12:08] [SERVER] Received line: "VIEW
+"
+[2025-10-26 16:12:08] [SERVER] VIEW request served. File size: 126 bytes
+[2025-10-26 16:12:08] [SERVER] Connection closed
+```
 
 At the end, both messages appear timestamped and ordered correctly in the shared file.
 
