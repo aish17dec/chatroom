@@ -161,6 +161,8 @@ make clean && make
 ```
 
 Executables will appear in the `bin/` directory.
+Note: 
+*** You have to clone the repository and compile the code in each of the three EC2 instances.  ***
 
 ---
 
