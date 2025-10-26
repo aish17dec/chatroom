@@ -10,7 +10,7 @@
 
 static const char *g_chatFile = "./chat.txt";
 
-static void HandleView(int clientFd, const std::string &line)
+static void HandleView(int clientFd)
 {
     FILE *file = std::fopen(g_chatFile, "r");
     if (!file)
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
         if (RecvLine(clientFd, line) > 0)
         {
             if (line.rfind("VIEW", 0) == 0)
-                HandleView(clientFd, line);
+                HandleView(clientFd);
             else if (line.rfind("POST ", 0) == 0)
                 HandlePost(clientFd, line);
             else
