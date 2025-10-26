@@ -27,7 +27,7 @@ namespace
 // Split "host:port" into "host" and "port" strings.
 void SplitHostPort(const std::string &hostPort, std::string &host, std::string &port)
 {
-    DEBUG_LOG("SplitHostPort() input: %s", hostPort.c_str());
+    // DEBUG_LOG("SplitHostPort() input: %s", hostPort.c_str());
     auto pos = hostPort.rfind(':');
     if (pos == std::string::npos)
     {
@@ -39,7 +39,7 @@ void SplitHostPort(const std::string &hostPort, std::string &host, std::string &
     {
         host = hostPort.substr(0, pos);
         port = hostPort.substr(pos + 1);
-        DEBUG_LOG("SplitHostPort(): host=%s, port=%s", host.c_str(), port.c_str());
+        // DEBUG_LOG("SplitHostPort(): host=%s, port=%s", host.c_str(), port.c_str());
     }
 }
 } // namespace
@@ -138,10 +138,10 @@ int TcpConnect(const std::string &host, const std::string &port)
             continue;
         }
 
-        DEBUG_LOG("Attempting connect() on fd=%d", sockFd);
+        std::cout << "Attempting connect()\n";
         if (connect(sockFd, rp->ai_addr, rp->ai_addrlen) == 0)
         {
-            DEBUG_LOG("TcpConnect(): successfully connected, fd=%d", sockFd);
+            std::cout << "TcpConnect(): successfully connected\n";
             break;
         }
 
@@ -231,14 +231,14 @@ int SendAll(int fd, const void *buf, size_t len)
 
     // Print the full message being sent (for human debugging)
     std::string message(ptr, len);
-    std::cout << "[NET][SEND] fd=" << fd << " message: " << message << std::flush;
+    DEBUG_LOG("[RA][SEND] %s\n", ptr);
 
     while (totalSent < len)
     {
         ssize_t n = ::send(fd, ptr + totalSent, len - totalSent, 0);
         if (n <= 0)
         {
-            std::cerr << "[NET][ERROR] send() failed: " << strerror(errno) << std::endl;
+            std::cerr << "[ERROR] send() failed: " << strerror(errno) << std::endl;
             return -1;
         }
         totalSent += static_cast<size_t>(n);
@@ -258,7 +258,6 @@ int SendLine(int fd, const std::string &line)
     if (msg.empty() || msg.back() != '\n')
     {
         msg.push_back('\n');
-        DEBUG_LOG("SendLine(): appended newline");
     }
     int result = SendAll(fd, msg.data(), msg.size());
     DEBUG_LOG("SendLine(): sent %zu bytes, result=%d", msg.size(), result);
