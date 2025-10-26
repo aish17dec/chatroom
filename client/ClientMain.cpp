@@ -1,15 +1,16 @@
 #include "../common/Logger.hpp"
 #include "../common/NetUtils.hpp"
 #include "DME.hpp"
+#include <arpa/inet.h>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <iostream>
 #include <string>
-#include <sys/socket.h> // for accept(), bind(), listen(), connect()
 #include <thread>
-#include <unistd.h> // for close(), read(), write()
+#include <unistd.h>
 
 /*
  *  ClientMain.cpp
@@ -20,6 +21,8 @@
  *  Communication:
  *   - To File Server: VIEW / POST commands
  *   - To Peer Node:   REQ / REP / REL messages (DME)
+ *
+ *  This version adds a robust peer connection retry mechanism.
  */
 
 static void formatTimestamp(char *buffer, size_t size)
@@ -51,12 +54,50 @@ static void peerListener(int listenFd, DME *dme)
     }
 }
 
+/*
+ * Attempts to connect to the peer with retries.
+ * This allows clients to start in any order without "Connection refused".
+ */
+static int connectToPeerWithRetry(const std::string &peerAddress)
+{
+    std::string host, port;
+    size_t pos = peerAddress.find(':');
+    if (pos == std::string::npos)
+    {
+        std::cerr << "Invalid peer address format: " << peerAddress << std::endl;
+        return -1;
+    }
+
+    host = peerAddress.substr(0, pos);
+    port = peerAddress.substr(pos + 1);
+
+    const int MAX_ATTEMPTS = 10;
+    int attempt = 0;
+
+    int peerFd = -1;
+    while (attempt < MAX_ATTEMPTS)
+    {
+        peerFd = TcpConnect(host, port);
+        if (peerFd >= 0)
+        {
+            std::cout << "Connected to peer " << peerAddress << std::endl;
+            return peerFd;
+        }
+
+        std::cout << "Peer not ready (" << ++attempt << "/" << MAX_ATTEMPTS << "), retrying in 2s..." << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+    }
+
+    std::cerr << "Failed to connect to peer " << peerAddress << " after " << MAX_ATTEMPTS << " attempts." << std::endl;
+    return -1;
+}
+
 int main(int argc, char **argv)
 {
     std::string userName = "User";
     int selfId = 1;
     int peerId = 2;
-    std::string peerAddress = "0.0.0.0:8002";
+    std::string peerAddress = "127.0.0.1:8002";
     std::string serverAddress = "127.0.0.1:7000";
     std::string listenAddress = "0.0.0.0:8001";
 
@@ -90,11 +131,11 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // Connect to peer for outgoing RA messages
-    int peerFd = TcpConnectHostPort(peerAddress);
+    // Connect to peer (with retry)
+    int peerFd = connectToPeerWithRetry(peerAddress);
     if (peerFd < 0)
     {
-        std::perror("connect peer");
+        std::cerr << "Peer connection failed, exiting.\n";
         return 1;
     }
 
