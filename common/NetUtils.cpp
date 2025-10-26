@@ -27,7 +27,6 @@ namespace
 // Split "host:port" into "host" and "port" strings.
 void SplitHostPort(const std::string &hostPort, std::string &host, std::string &port)
 {
-    TRACE_ENTER();
     DEBUG_LOG("SplitHostPort() input: %s", hostPort.c_str());
     auto pos = hostPort.rfind(':');
     if (pos == std::string::npos)
@@ -42,7 +41,6 @@ void SplitHostPort(const std::string &hostPort, std::string &host, std::string &
         port = hostPort.substr(pos + 1);
         DEBUG_LOG("SplitHostPort(): host=%s, port=%s", host.c_str(), port.c_str());
     }
-    TRACE_EXIT();
 }
 } // namespace
 
