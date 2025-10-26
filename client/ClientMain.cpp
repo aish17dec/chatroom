@@ -7,8 +7,9 @@
 #include <ctime>
 #include <iostream>
 #include <string>
+#include <sys/socket.h> // for accept(), bind(), listen(), connect()
 #include <thread>
-#include <unistd.h>
+#include <unistd.h> // for close(), read(), write()
 
 /*
  *  ClientMain.cpp
