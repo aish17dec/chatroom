@@ -17,8 +17,7 @@ INCLUDES  := -I$(COMMON_DIR)
 
 # Object files
 OBJS      := ServerMain.o \
-             $(COMMON_DIR)/NetUtils.o \
-             $(COMMON_DIR)/Logger.o
+             $(COMMON_DIR)/NetUtils.o 
 
 # Target
 TARGET    := $(BIN_DIR)/server

@@ -1,5 +1,5 @@
-#include "../common/Logger.hpp"
 #include "../common/NetUtils.hpp"
+#include "../debug.hpp"
 #include "DME.hpp"
 
 #include <arpa/inet.h>
@@ -35,11 +35,13 @@ static int connectPeerForever(const std::string &addr)
         fd = TcpConnect(host, port);
         if (fd >= 0)
         {
-            std::cout << "Connected to peer " << addr << " after " << attempt << " attempts.\n";
+            std::cout << Timestamp() << " [CLIENT] Connected to peer " << addr << " after " << attempt << " attempts."
+                      << std::endl;
             return fd;
         }
         ++attempt;
-        std::cout << "Peer not ready, retrying in 2s... (attempt " << attempt << ")\n";
+        std::cout << Timestamp() << " [CLIENT] Peer not ready, retrying in 2s... (attempt " << attempt << ")"
+                  << std::endl;
         std::this_thread::sleep_for(std::chrono::seconds(2));
     }
 }
@@ -55,7 +57,7 @@ static void peerAcceptLoop(int listenFd, DME *dme)
         std::string line;
         while (RecvLine(connFd, line) > 0)
         {
-            std::cout << "[CLIENT " << dme->getSelfId() << "] peer->me: " << line;
+            std::cout << Timestamp() << " [CLIENT " << dme->getSelfId() << "] peer->me: " << line;
             dme->handleRaMessage(line);
         }
         ::close(connFd);
@@ -64,9 +66,10 @@ static void peerAcceptLoop(int listenFd, DME *dme)
 
 static void userInputLoop(const std::string &userName, const std::string &serverAddr, DME *dme)
 {
-    std::cout << "Chat Room — DC Assignment II\n";
-    std::cout << "User: " << userName << " (self=" << dme->getSelfId() << ", peer=" << dme->getPeerId() << ")\n";
-    std::cout << "Commands: view | post \"text\" | quit\n";
+    std::cout << Timestamp() << " [CLIENT] Chat Room — DC Assignment II" << std::endl;
+    std::cout << Timestamp() << " [CLIENT] User: " << userName << " (self=" << dme->getSelfId()
+              << ", peer=" << dme->getPeerId() << ")" << std::endl;
+    std::cout << Timestamp() << " [CLIENT] Commands: view | post \"text\" | quit" << std::endl;
 
     std::string input;
     while (true)
@@ -85,7 +88,7 @@ static void userInputLoop(const std::string &userName, const std::string &server
             int sfd = TcpConnectHostPort(serverAddr);
             if (sfd < 0)
             {
-                std::cout << "Server unreachable\n";
+                std::cerr << Timestamp() << " [CLIENT] Server unreachable" << std::endl;
                 continue;
             }
 
@@ -95,7 +98,7 @@ static void userInputLoop(const std::string &userName, const std::string &server
             std::string header;
             if (RecvLine(sfd, header) <= 0 || header.rfind("OK", 0) != 0)
             {
-                std::cout << "Server error\n";
+                std::cerr << Timestamp() << " [CLIENT] Server error" << std::endl;
                 ::close(sfd);
                 continue;
             }
@@ -105,7 +108,7 @@ static void userInputLoop(const std::string &userName, const std::string &server
             {
                 if (line == ".\n" || line == ".\r\n")
                     break;
-                std::cout << line;
+                std::cout << Timestamp() << " [CLIENT] " << line;
             }
             ::close(sfd);
         }
@@ -113,14 +116,14 @@ static void userInputLoop(const std::string &userName, const std::string &server
         {
             if (!dme->requestCriticalSection())
             {
-                std::cout << "Could not acquire lock (peer unresponsive)\n";
+                std::cerr << Timestamp() << " [CLIENT] Could not acquire lock (peer unresponsive)" << std::endl;
                 continue;
             }
 
             int sfd = TcpConnectHostPort(serverAddr);
             if (sfd < 0)
             {
-                std::cout << "Server unreachable\n";
+                std::cerr << Timestamp() << " [CLIENT] Server unreachable" << std::endl;
                 dme->releaseCriticalSection();
                 continue;
             }
@@ -133,9 +136,9 @@ static void userInputLoop(const std::string &userName, const std::string &server
 
             std::string resp;
             if (RecvLine(sfd, resp) > 0 && resp.rfind("OK", 0) == 0)
-                std::cout << "(posted)\n";
+                std::cout << Timestamp() << " [CLIENT] (posted)" << std::endl;
             else
-                std::cout << "POST failed\n";
+                std::cerr << Timestamp() << " [CLIENT] POST failed" << std::endl;
 
             ::close(sfd);
             dme->releaseCriticalSection();
@@ -170,12 +173,11 @@ int main(int argc, char **argv)
 
     char prefix[32];
     std::snprintf(prefix, sizeof prefix, "client-%d", selfId);
-    InitLogger(prefix);
 
     int listenFd = TcpListen(listenAddr);
     if (listenFd < 0)
     {
-        std::perror("listen peer");
+        std::cerr << Timestamp() << " [CLIENT] ERROR: listen peer failed" << std::endl;
         return 1;
     }
 

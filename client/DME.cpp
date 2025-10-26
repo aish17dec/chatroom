@@ -1,6 +1,6 @@
 #include "DME.hpp"
-#include "../common/Logger.hpp"
 #include "../common/NetUtils.hpp"
+#include "../debug.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -23,7 +23,7 @@ void DME::sendLine(const std::string &line)
         out.push_back('\n');
 
     SendAll(m_peerFd, out.c_str(), out.size());
-    std::cout << "[RA] Sent message: " << out.c_str() << "\n";
+    std::cout << Timestamp() << " [DME][RA] Sent message: " << out.c_str() << std::endl;
 }
 
 /**
@@ -38,8 +38,8 @@ void DME::handleRaMessage(const std::string &msg)
 
     std::unique_lock<std::mutex> lk(m_mutex);
 
-    std::cout << "Message Received : " << msg << "\n";
-    std::cout << "Extracted Type: " << type << "\n";
+    std::cout << Timestamp() << " [DME] Message Received : " << msg << std::endl;
+    std::cout << Timestamp() << " [DME] Extracted Type: " << type << std::endl;
 
     // ----------------------------------------------------------
     // Handle REQUEST message
@@ -48,27 +48,28 @@ void DME::handleRaMessage(const std::string &msg)
     {
         int t, fromId;
         iss >> t >> fromId;
-        std::cout << "Extracted timestamp from message: " << t << ", extracted peer Node Id: " << fromId << "\n";
+        std::cout << Timestamp() << " [DME] Extracted timestamp from message: " << t
+                  << ", extracted peer Node Id: " << fromId << std::endl;
         m_lamportTs = std::max(m_lamportTs, t) + 1;
-        std::cout << "Calculated Lamport timestamp to: " << m_lamportTs << "\n";
+        std::cout << Timestamp() << " [DME] Calculated Lamport timestamp to: " << m_lamportTs << std::endl;
 
-        std::cout << "[DME][IN] Received REQUEST for Critical Section from Node: " << fromId << " with Lamport ts=" << t
-                  << ")\n";
+        std::cout << Timestamp() << " [DME][IN] Received REQUEST for Critical Section from Node: " << fromId
+                  << " with Lamport ts=" << t << ")" << std::endl;
 
-        // Defer reply if currently in CS or has higher priority
-        std::cout << "Current State - InCS: " << m_inCriticalSection << ", Requesting: " << m_requesting
-                  << ", ReqTs: " << m_reqTs << "\n";
+        std::cout << Timestamp() << " [DME] Current State - InCS: " << m_inCriticalSection
+                  << ", Requesting: " << m_requesting << ", ReqTs: " << m_reqTs << std::endl;
+
         if (m_inCriticalSection || (m_requesting && (m_reqTs < t || (m_reqTs == t && m_selfId < fromId))))
         {
             m_deferReply = true;
-            std::cout << "[RA] REQUEST from:" << fromId << "ts=" << t
-                      << "deferred — currently in CS or has higher priority\n";
+            std::cout << Timestamp() << " [DME][RA] REQUEST from:" << fromId << " ts=" << t
+                      << " deferred — currently in CS or has higher priority" << std::endl;
         }
         else
         {
             sendLine("REPLY " + std::to_string(m_selfId));
-            std::cout << "[RA][OUT] REQUEST from peer node " << fromId << " (timestamp=" << t << ") accepted — "
-                      << "sent REPLY (permission granted)\n";
+            std::cout << Timestamp() << " [DME][RA][OUT] REQUEST from peer node " << fromId << " (timestamp=" << t
+                      << ") accepted — sent REPLY (permission granted)" << std::endl;
         }
     }
 
@@ -80,7 +81,7 @@ void DME::handleRaMessage(const std::string &msg)
         int fromId;
         iss >> fromId;
         m_peerReplied = true;
-        std::cout << "[RA] Received REPLY (permission granted) from peer " << fromId << "\n";
+        std::cout << Timestamp() << " [DME][RA] Received REPLY (permission granted) from peer " << fromId << std::endl;
         m_cv.notify_all();
     }
 
@@ -91,17 +92,18 @@ void DME::handleRaMessage(const std::string &msg)
     {
         int fromId;
         iss >> fromId;
-        std::cout << "[RA] Received RELEASE from " << fromId << " — peer exited CS \n";
+        std::cout << Timestamp() << " [DME][RA] Received RELEASE from " << fromId << " — peer exited CS" << std::endl;
 
         if (m_deferReply)
         {
             sendLine("REPLY " + std::to_string(m_selfId));
             m_deferReply = false;
-            std::cout << "[RA] Sent deferred REPLY to " << fromId << "  after receiving RELEASE"
-                      << "\n";
+            std::cout << Timestamp() << " [DME][RA] Sent deferred REPLY to " << fromId << " after receiving RELEASE"
+                      << std::endl;
         }
     }
 }
+
 bool DME::requestCriticalSection()
 {
     std::unique_lock<std::mutex> lk(m_mutex);
@@ -114,13 +116,14 @@ bool DME::requestCriticalSection()
     m_reqTs = m_lamportTs;
 
     sendLine("REQUEST " + std::to_string(m_reqTs) + " " + std::to_string(m_selfId));
-    std::cout << "[RA] REQUEST sent to peer ID: " << m_peerId << " request ID:" << m_reqTs;
+    std::cout << Timestamp() << " [DME][RA] REQUEST sent to peer ID: " << m_peerId << " request ID:" << m_reqTs
+              << std::endl;
 
     while (!m_peerReplied)
     {
         if (m_cv.wait_for(lk, std::chrono::seconds(10)) == std::cv_status::timeout)
         {
-            std::cout << "[RA] TIMEOUT waiting for REPLY from peer " << m_peerId << "\n";
+            std::cerr << Timestamp() << " [DME][RA] TIMEOUT waiting for REPLY from peer " << m_peerId << std::endl;
             m_requesting = false;
             return false;
         }
@@ -128,8 +131,7 @@ bool DME::requestCriticalSection()
 
     m_requesting = false;
     m_inCriticalSection = true;
-    std::cout << "[RA] ENTER critical section (permission received)"
-              << "\n";
+    std::cout << Timestamp() << " [DME][RA] ENTER critical section (permission received)" << std::endl;
     return true;
 }
 
@@ -143,6 +145,5 @@ void DME::releaseCriticalSection()
     m_lamportTs++;
 
     sendLine("RELEASE " + std::to_string(m_selfId));
-    std::cout << "[RA] RELEASE sent — leaving critical section"
-              << "\n";
+    std::cout << Timestamp() << " [DME][RA] RELEASE sent — leaving critical section" << std::endl;
 }

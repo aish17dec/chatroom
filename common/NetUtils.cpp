@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "../Trace.hpp"
+#include "../debug.hpp"
 #include "NetUtils.hpp"
 
 /*
@@ -27,19 +27,19 @@ namespace
 // Split "host:port" into "host" and "port" strings.
 void SplitHostPort(const std::string &hostPort, std::string &host, std::string &port)
 {
-    // DEBUG_LOG("SplitHostPort() input: %s", hostPort.c_str());
     auto pos = hostPort.rfind(':');
     if (pos == std::string::npos)
     {
         host = hostPort;
         port.clear();
-        DEBUG_LOG("SplitHostPort(): no ':' found, host=%s, port=<empty>", host.c_str());
+        std::cout << Timestamp() << " [NET] SplitHostPort(): no ':' found, host=" << host << ", port=<empty>"
+                  << std::endl;
     }
     else
     {
         host = hostPort.substr(0, pos);
         port = hostPort.substr(pos + 1);
-        // DEBUG_LOG("SplitHostPort(): host=%s, port=%s", host.c_str(), port.c_str());
+        std::cout << Timestamp() << " [NET] SplitHostPort(): host=" << host << ", port=" << port << std::endl;
     }
 }
 } // namespace
@@ -52,8 +52,7 @@ void SplitHostPort(const std::string &hostPort, std::string &host, std::string &
  */
 int TcpListen(const std::string &hostPort)
 {
-    TRACE_ENTER();
-    DEBUG_LOG("TcpListen() called with hostPort=%s", hostPort.c_str());
+    std::cout << Timestamp() << " [NET] TcpListen() called with hostPort=" << hostPort << std::endl;
 
     std::string host, port;
     SplitHostPort(hostPort, host, port);
@@ -69,19 +68,20 @@ int TcpListen(const std::string &hostPort)
     int ret = getaddrinfo(host.c_str(), port.c_str(), &hints, &result);
     if (ret != 0)
     {
-        DEBUG_LOG("getaddrinfo() failed: %s", gai_strerror(ret));
+        std::cerr << Timestamp() << " [NET] getaddrinfo() failed: " << gai_strerror(ret) << std::endl;
         return -1;
     }
 
     int listenFd = -1;
     for (auto *rp = result; rp; rp = rp->ai_next)
     {
-        DEBUG_LOG("Creating socket: family=%d, socktype=%d, protocol=%d", rp->ai_family, rp->ai_socktype,
-                  rp->ai_protocol);
+        std::cout << Timestamp() << " [NET] Creating socket: family=" << rp->ai_family
+                  << ", socktype=" << rp->ai_socktype << ", protocol=" << rp->ai_protocol << std::endl;
+
         listenFd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (listenFd < 0)
         {
-            DEBUG_LOG("socket() failed: %s", strerror(errno));
+            std::cerr << Timestamp() << " [NET] socket() failed: " << strerror(errno) << std::endl;
             continue;
         }
 
@@ -90,14 +90,15 @@ int TcpListen(const std::string &hostPort)
 #ifdef SO_REUSEPORT
         setsockopt(listenFd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on));
 #endif
-        DEBUG_LOG("Attempting bind() and listen() on socket fd=%d", listenFd);
+        std::cout << Timestamp() << " [NET] Attempting bind() and listen() on socket fd=" << listenFd << std::endl;
         if (bind(listenFd, rp->ai_addr, rp->ai_addrlen) == 0 && listen(listenFd, 64) == 0)
         {
-            DEBUG_LOG("TcpListen(): Successfully bound and listening on fd=%d", listenFd);
+            std::cout << Timestamp() << " [NET] TcpListen(): Successfully bound and listening on fd=" << listenFd
+                      << std::endl;
             break;
         }
 
-        DEBUG_LOG("bind()/listen() failed: %s", strerror(errno));
+        std::cerr << Timestamp() << " [NET] bind()/listen() failed: " << strerror(errno) << std::endl;
         close(listenFd);
         listenFd = -1;
     }
@@ -124,7 +125,7 @@ int TcpConnect(const std::string &host, const std::string &port)
     int ret = getaddrinfo(host.c_str(), port.c_str(), &hints, &result);
     if (ret != 0)
     {
-        DEBUG_LOG("getaddrinfo() failed: %s", gai_strerror(ret));
+        std::cerr << Timestamp() << " [NET] getaddrinfo() failed: " << gai_strerror(ret) << std::endl;
         return -1;
     }
 
@@ -134,14 +135,14 @@ int TcpConnect(const std::string &host, const std::string &port)
         sockFd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (sockFd < 0)
         {
-            DEBUG_LOG("socket() failed: %s", strerror(errno));
+            std::cerr << Timestamp() << " [NET] socket() failed: " << strerror(errno) << std::endl;
             continue;
         }
 
-        std::cout << "Attempting connect()\n";
+        std::cout << Timestamp() << " [NET] Attempting connect()" << std::endl;
         if (connect(sockFd, rp->ai_addr, rp->ai_addrlen) == 0)
         {
-            std::cout << "TcpConnect(): successfully connected\n";
+            std::cout << Timestamp() << " [NET] TcpConnect(): successfully connected" << std::endl;
             break;
         }
 
@@ -160,7 +161,7 @@ int TcpConnect(const std::string &host, const std::string &port)
  */
 int TcpConnectHostPort(const std::string &hostPort)
 {
-    DEBUG_LOG("TcpConnectHostPort() input: %s", hostPort.c_str());
+    std::cout << Timestamp() << " [NET] TcpConnectHostPort() input: " << hostPort << std::endl;
     std::string host, port;
     SplitHostPort(hostPort, host, port);
     int fd = TcpConnect(host, port);
@@ -183,7 +184,7 @@ int RecvLine(int fd, std::string &out, size_t max)
         ssize_t n = ::recv(fd, &ch, 1, 0);
         if (n <= 0)
         {
-            DEBUG_LOG("recv() returned %zd", n);
+            std::cerr << Timestamp() << " [NET] recv() returned " << n << std::endl;
             return out.empty() ? -1 : static_cast<int>(out.size());
         }
 
@@ -203,42 +204,20 @@ int RecvLine(int fd, std::string &out, size_t max)
  * Sends the entire buffer over the socket, retrying if necessary.
  * Returns 0 on success, -1 on error.
  */
-// int SendAll(int fd, const void *buf, size_t len)
-// {
-//     const char *ptr = static_cast<const char *>(buf);
-//     size_t totalSent = 0;
-
-//     while (totalSent < len)
-//     {
-//         ssize_t n = ::send(fd, ptr + totalSent, len - totalSent, 0);
-//         if (n <= 0)
-//         {
-//             DEBUG_LOG("send() failed: %s", strerror(errno));
-//             return -1;
-//         }
-//         totalSent += static_cast<size_t>(n);
-//         DEBUG_LOG("SendAll(): sent=%zd, totalSent=%zu/%zu", n, totalSent, len);
-//     }
-
-//     DEBUG_LOG("SendAll(): completed successfully for fd=%d", fd);
-//     return 0;
-// }
-
 int SendAll(int fd, const void *buf, size_t len)
 {
     const char *ptr = static_cast<const char *>(buf);
     size_t totalSent = 0;
 
-    // Print the full message being sent (for human debugging)
     std::string message(ptr, len);
-    DEBUG_LOG("[RA][SEND] %s\n", ptr);
+    std::cout << Timestamp() << " [NET][SEND] " << message << std::endl;
 
     while (totalSent < len)
     {
         ssize_t n = ::send(fd, ptr + totalSent, len - totalSent, 0);
         if (n <= 0)
         {
-            std::cerr << "[ERROR] send() failed: " << strerror(errno) << std::endl;
+            std::cerr << Timestamp() << " [NET][ERROR] send() failed: " << strerror(errno) << std::endl;
             return -1;
         }
         totalSent += static_cast<size_t>(n);
@@ -260,7 +239,6 @@ int SendLine(int fd, const std::string &line)
         msg.push_back('\n');
     }
     int result = SendAll(fd, msg.data(), msg.size());
-    DEBUG_LOG("SendLine(): sent %zu bytes, result=%d", msg.size(), result);
-    TRACE_EXIT();
+    std::cout << Timestamp() << " [NET] SendLine(): sent " << msg.size() << " bytes, result=" << result << std::endl;
     return result;
 }

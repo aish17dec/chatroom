@@ -18,8 +18,7 @@ INCLUDES   := -I$(COMMON_DIR)
 # Object files
 OBJS       := ClientMain.o \
               DME.o \
-              $(COMMON_DIR)/NetUtils.o \
-              $(COMMON_DIR)/Logger.o
+              $(COMMON_DIR)/NetUtils.o
 
 # Output binary
 TARGET     := $(BIN_DIR)/client
