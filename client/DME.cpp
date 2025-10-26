@@ -11,7 +11,6 @@ DME::DME(int selfId, int peerId, int peerFd) : m_selfId(selfId), m_peerId(peerId
 {
 }
 
-/* Always append '\n' so peer's RecvLine() returns */
 void DME::sendLine(const std::string &line)
 {
     std::string out = line;
@@ -21,7 +20,6 @@ void DME::sendLine(const std::string &line)
     LogLine("SEND %s", out.c_str());
 }
 
-/* Handle incoming REQ/REP/REL (called by peer thread) */
 void DME::handleRaMessage(const std::string &msg)
 {
     std::istringstream iss(msg);
@@ -34,23 +32,16 @@ void DME::handleRaMessage(const std::string &msg)
     {
         int t, fromId;
         iss >> t >> fromId;
-
-        // Lamport update
         m_lamportTs = std::max(m_lamportTs, t) + 1;
 
-        bool shouldDefer = false;
-
-        // Defer if:
-        //  - we are in CS, or
-        //  - we are requesting and our request has priority (lower ts or tie-breaker by id)
+        bool defer = false;
         if (m_inCs || (m_requesting && (m_reqTs < t || (m_reqTs == t && m_selfId < fromId))))
         {
-            shouldDefer = true;
+            defer = true;
             m_deferReply = true;
-            LogLine("DEFER to %d (ts=%d)", fromId, t);
         }
 
-        if (!shouldDefer)
+        if (!defer)
         {
             sendLine("REP " + std::to_string(m_selfId));
             LogLine("SEND REP to %d", fromId);
@@ -69,18 +60,14 @@ void DME::handleRaMessage(const std::string &msg)
         int fromId;
         iss >> fromId;
         LogLine("RECV REL from %d", fromId);
-
         if (m_deferReply)
         {
             sendLine("REP " + std::to_string(m_selfId));
-            LogLine("SEND deferred REP to %d", fromId);
             m_deferReply = false;
         }
     }
-    // else: ignore malformed
 }
 
-/* Request the critical section (block until REP or timeout) */
 bool DME::requestCs()
 {
     std::unique_lock<std::mutex> lk(m_mutex);
@@ -93,9 +80,7 @@ bool DME::requestCs()
     m_reqTs = m_lamportTs;
 
     sendLine("REQ " + std::to_string(m_reqTs) + " " + std::to_string(m_selfId));
-    LogLine("SEND REQ ts=%d", m_reqTs);
 
-    // Wait until peer replies (or timeout -> false)
     while (!m_peerReplied)
     {
         if (m_cv.wait_for(lk, std::chrono::seconds(10)) == std::cv_status::timeout)
@@ -106,14 +91,12 @@ bool DME::requestCs()
         }
     }
 
-    // Enter CS
     m_requesting = false;
     m_inCs = true;
     LogLine("ENTER CS");
     return true;
 }
 
-/* Release the critical section */
 void DME::releaseCs()
 {
     std::lock_guard<std::mutex> lk(m_mutex);

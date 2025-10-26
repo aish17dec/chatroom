@@ -1,30 +1,21 @@
 #ifndef DME_HPP
 #define DME_HPP
 
-#include "../Trace.hpp"
 #include <condition_variable>
 #include <mutex>
 #include <string>
 
-/*
- * Ricart–Agrawala (two-node) DME
- * Messages:
- *   REQ <ts> <fromId>
- *   REP <fromId>
- *   REL <fromId>
- *
- * Usage:
- *   - requestCs() blocks until REP from peer (or times out -> false)
- *   - releaseCs() sends REL and flushes any deferred reply
- *   - handleRaMessage(line) processes REQ/REP/REL from peer thread
+/**
+ * @brief Implements the Ricart–Agrawala Distributed Mutual Exclusion (DME)
+ *        algorithm for two-node coordination.
  */
 class DME
 {
   public:
     DME(int selfId, int peerId, int peerFd);
 
-    bool requestCs(); // acquire (blocks until REP or timeout)
-    void releaseCs(); // release (sends REL; flush deferred REP)
+    bool requestCs(); // Request critical section
+    void releaseCs(); // Release critical section
     void handleRaMessage(const std::string &line);
 
     int getSelfId() const
@@ -37,9 +28,8 @@ class DME
     }
 
   private:
-    void sendLine(const std::string &line); // ensures trailing '\n'
+    void sendLine(const std::string &line);
 
-    // state protected by m_mutex
     std::mutex m_mutex;
     std::condition_variable m_cv;
 
