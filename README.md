@@ -1,25 +1,24 @@
 chmod +x create_structure.sh
 ./create_structure.sh
-Creating project structure...
-
-Project structure created successfully:
+vbhadra@vbhadra-DQ77MK:~/chatroom$ tree
 .
 ├── client
-│   ├── dme.cpp
-│   ├── dme.hpp
-│   ├── main.cpp
+│   ├── ClientMain.cpp
+│   ├── DME.cpp
+│   ├── DME.hpp
 │   └── Makefile
 ├── common
-│   ├── logger.cpp
-│   ├── logger.hpp
-│   ├── net.cpp
-│   └── net.hpp
+│   ├── Logger.cpp
+│   ├── Logger.hpp
+│   ├── NetUtils.cpp
+│   └── NetUtils.hpp
 ├── create_structure.sh
 ├── Makefile
 ├── README.md
 └── server
-    ├── main.cpp
-    └── Makefile
+    ├── Makefile
+    └── ServerMain.cpp
 
 4 directories, 13 files
+
 
